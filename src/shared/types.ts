@@ -18,7 +18,7 @@ export type Agent = {
   preview?: string // last assistant line, for sidebar
   unread?: boolean // agent replied while its chat was not on screen
   unreadCount?: number // replies since the chat was last on screen
-  mcp?: { name: string; status: string }[] // from the last session init
+  mcp?: { name: string; status: string; tools?: string[] }[] // from the last session init
   commands?: string[] // slash commands the CLI reported
 }
 
@@ -58,6 +58,8 @@ export type Task = {
   planId?: string
   comments: TaskComment[]
 }
+
+export type McpServerInfo = { name: string; scope: 'user' | 'local' | 'project'; transport: string; target: string }
 
 export type GroupMsg = { id: string; author: 'me' | string; text: string; ts: number } // author = 'me' or agent id
 
@@ -117,6 +119,7 @@ export type Event =
   | { type: 'group'; workspaceId: string; msg: GroupMsg }
   | { type: 'plan'; plan: Plan }
   | { type: 'task'; task: Task }
+  | { type: 'mcpAuthUrl'; url: string }
   | { type: 'taskDeleted'; taskId: string; workspaceId: string }
 
 export type Api = {
@@ -159,6 +162,12 @@ export type Api = {
   kbWrite(workspaceId: string, rel: string, content: string): Promise<void> // writes + git commit
   kbDelete(workspaceId: string, rel: string): Promise<void>
   copy(text: string): Promise<void> // system clipboard
+  mcpConfigured(agentId: string): Promise<McpServerInfo[]>
+  mcpAdd(agentId: string, input: { name: string; transport: 'http' | 'sse' | 'stdio'; target: string; args?: string[]; env?: Record<string, string>; headers?: Record<string, string>; scope: 'user' | 'local' | 'project' }): Promise<void>
+  mcpRemove(agentId: string, name: string, scope: 'user' | 'local' | 'project'): Promise<void>
+  mcpAuthStart(agentId: string, name: string): Promise<string> // resolves with DONE / FAILED when the flow ends
+  mcpAuthDone(callbackUrl: string | null): Promise<void> // user finished in the browser (optionally pasted the callback URL)
+  openExternal(url: string): Promise<void>
   pickFolder(): Promise<string | null>
   pickImage(): Promise<string | null> // data URL of the chosen image file
   pickImages(): Promise<string[]> // data URLs, multi-select

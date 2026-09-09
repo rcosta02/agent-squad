@@ -134,6 +134,10 @@ export class Sessions {
     }
   }
 
+  cwdOf(agentId: string) {
+    return this.get(agentId).cwd
+  }
+
   listWorkspaces() {
     return this.workspaces
   }
@@ -722,7 +726,10 @@ export class Sessions {
         if ('parent_tool_use_id' in m && m.parent_tool_use_id) continue // hide subagent internals
 
         if (m.type === 'system' && m.subtype === 'init') {
-          const mcp = (m.mcp_servers ?? []).map((s) => ({ name: s.name, status: s.status }))
+          const mcp = (m.mcp_servers ?? []).map((s) => {
+            const slug = 'mcp__' + s.name.replace(/[^\w]/g, '_') + '__'
+            return { name: s.name, status: s.status, tools: (m.tools ?? []).filter((t) => t.startsWith(slug)).map((t) => t.slice(slug.length)) }
+          })
           const commands = (m.slash_commands ?? []).filter((c) => !c.startsWith('mcp__'))
           if (JSON.stringify(mcp) !== JSON.stringify(agent.mcp) || JSON.stringify(commands) !== JSON.stringify(agent.commands)) this.update(id, { mcp, commands })
           if (agent.sessionId !== m.session_id) {

@@ -4,6 +4,7 @@ import type { Agent, Msg } from '../../../shared/types'
 import type { AssistantMsg, ResultMsg, ToolMsg, UserMsg } from '../lib'
 import Avatar from './Avatar'
 import Composer, { fileToDataUrl } from './Composer'
+import McpModal from './McpModal'
 import PermissionCard from './PermissionCard'
 import ToolCard from './ToolCard'
 
@@ -323,33 +324,7 @@ export default function Chat({ agent, msgs, running, onSend, onStop, onEdit, onN
       onDrop={onDrop}
     >
       {dragging && <div className="drop-overlay">Drop images to attach</div>}
-      {mcpOpen && (
-        <div className="modal-backdrop" onMouseDown={(e) => e.target === e.currentTarget && setMcpOpen(false)}>
-          <div className="modal" role="dialog">
-            <h2>MCP servers · {agent.name}</h2>
-            {!agent.mcp ? (
-              <div className="hint">Unknown until the agent has run once.</div>
-            ) : (
-              <div className="mcp-list">
-                {agent.mcp.map((s) => (
-                  <div key={s.name} className="mcp-row">
-                    <span className={'mcp-dot ' + (s.status === 'connected' ? 'ok' : 'bad')} />
-                    <span className="mcp-name">{s.name}</span>
-                    <span className="hint">{s.status}</span>
-                  </div>
-                ))}
-              </div>
-            )}
-            <div className="hint">Configured in ~/.claude.json, plugins, and your claude.ai connectors. "needs-auth" servers: run <code>/mcp</code> in a terminal Claude Code session to log in.</div>
-            <div className="modal-actions">
-              <span style={{ flex: 1 }} />
-              <button className="btn primary" onClick={() => setMcpOpen(false)}>
-                Close
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {mcpOpen && <McpModal agent={agent} onClose={() => setMcpOpen(false)} />}
       <header className="chat-header">
         <Avatar agent={agent} size={20} />
         <span className="name">{agent.name}</span>
