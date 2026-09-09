@@ -70,12 +70,14 @@ export default function App() {
   const switchWorkspace = useCallback((id: string) => {
     setWorkspaceId(id)
     setSelectedId(null)
+    setShowBoard(false)
     try {
       localStorage.setItem(WS_KEY, id)
     } catch {}
   }, [])
   const isGroup = selectedId === 'group'
-  const isBoard = selectedId === 'board'
+  const [showBoard, setShowBoard] = useState(false)
+  const isBoard = showBoard
   const selected = useMemo(
     () => (isGroup || isBoard ? null : (sorted.find((a) => a.id === selectedId) ?? sorted[0] ?? null)),
     [agents, sorted, selectedId, isGroup, isBoard]
@@ -290,13 +292,14 @@ export default function App() {
   return (
     <div className="app">
       <Rail workspaces={workspaces} currentId={workspace?.id ?? null} unread={unreadByWs} onSwitch={switchWorkspace} onNew={() => setModal({ mode: 'ws-create' })} />
+      {!isBoard && (
       <Sidebar
         workspace={workspace}
         onNewWorkspace={() => setModal({ mode: 'ws-create' })}
         onEditWorkspace={() => setModal({ mode: 'ws-edit' })}
         onOpenKb={() => setModal({ mode: 'kb' })}
         agents={sorted}
-        selectedId={isGroup ? 'group' : isBoard ? 'board' : (selected?.id ?? null)}
+        selectedId={isGroup ? 'group' : (selected?.id ?? null)}
         groupUnread={workspace?.groupUnread ?? 0}
         boardUnread={workspace?.boardUnread ?? 0}
         running={running}
@@ -307,12 +310,14 @@ export default function App() {
           setSelectedId(id)
         }}
         onNew={() => setModal({ mode: 'create' })}
+        onBoard={() => setShowBoard(true)}
       />
+      )}
       <main className="chat-pane">
         {openPlan ? (
           <PlanView planId={openPlan} onBack={() => setOpenPlan(null)} />
         ) : isBoard && workspace ? (
-          <Board workspace={workspace} agents={sorted} tasks={tasks[workspace.id] ?? []} running={running} />
+          <Board workspace={workspace} agents={sorted} tasks={tasks[workspace.id] ?? []} running={running} onBack={() => setShowBoard(false)} />
         ) : isGroup && workspace ? (
           <GroupChat agents={sorted} msgs={groups[workspace.id]} running={running} onSend={(t) => void api.sendGroup(workspace.id, t)} />
         ) : selected ? (

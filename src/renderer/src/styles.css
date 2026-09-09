@@ -751,3 +751,9 @@ section.plan-card ul { margin: 0 0 8px; padding-left: 20px; }
 .tcomment-input { font: inherit; font-size: 13px; background: var(--bg); color: var(--text); border: 1px solid var(--border); border-radius: 8px; padding: 7px 10px; outline: 0; }
 .tcomment-input:focus { border-color: var(--blue); }
 .drawer-foot { margin-top: auto; padding-top: 8px; }
+
+.board-btn { position: relative; }
+.rail-badge.small { top: -5px; right: -5px; min-width: 15px; height: 15px; font-size: 10px; padding: 0 4px; border-color: var(--sidebar); }
+.board-header { padding-left: 84px; } /* clear the traffic lights when the sidebar is hidden */
+.back-btn { -webkit-app-region: no-drag; }
+.board-header .name { margin-left: 4px; }

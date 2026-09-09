@@ -18,9 +18,10 @@ type Props = {
   agents: Agent[]
   tasks: Task[]
   running: Set<string>
+  onBack: () => void
 }
 
-export default function Board({ workspace, agents, tasks, running }: Props) {
+export default function Board({ workspace, agents, tasks, running, onBack }: Props) {
   const api = window.api
   const [openId, setOpenId] = useState<string | null>(null)
   const [adding, setAdding] = useState<TaskStatus | null>(null)
@@ -91,8 +92,10 @@ export default function Board({ workspace, agents, tasks, running }: Props) {
   return (
     <div className="board">
       <header className="chat-header board-header">
-        <span className="group-hash">⊞</span>
-        <span className="name">Board</span>
+        <button className="btn small back-btn" onClick={onBack}>
+          ← Conversations
+        </button>
+        <span className="name">{workspace.name} · Board</span>
         <input className="board-search" type="text" placeholder="Search tasks…" value={search} onChange={(e) => setSearch(e.target.value)} />
         <select className="rev-pick" value={who} onChange={(e) => setWho(e.target.value)}>
           <option value="all">Everyone</option>
