@@ -212,6 +212,7 @@ export default function Chat({ agent, msgs, running, onSend, onStop, onEdit, onN
   setMentionNames(names)
   const listRef = useRef<HTMLDivElement>(null)
   const [menu, setMenu] = useState(false)
+  const [mcpOpen, setMcpOpen] = useState(false)
   const [dragging, setDragging] = useState(false)
   const [dropped, setDropped] = useState<string[]>([])
   const clearDropped = useCallback(() => setDropped([]), [])
@@ -322,6 +323,33 @@ export default function Chat({ agent, msgs, running, onSend, onStop, onEdit, onN
       onDrop={onDrop}
     >
       {dragging && <div className="drop-overlay">Drop images to attach</div>}
+      {mcpOpen && (
+        <div className="modal-backdrop" onMouseDown={(e) => e.target === e.currentTarget && setMcpOpen(false)}>
+          <div className="modal" role="dialog">
+            <h2>MCP servers · {agent.name}</h2>
+            {!agent.mcp ? (
+              <div className="hint">Unknown until the agent has run once.</div>
+            ) : (
+              <div className="mcp-list">
+                {agent.mcp.map((s) => (
+                  <div key={s.name} className="mcp-row">
+                    <span className={'mcp-dot ' + (s.status === 'connected' ? 'ok' : 'bad')} />
+                    <span className="mcp-name">{s.name}</span>
+                    <span className="hint">{s.status}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+            <div className="hint">Configured in ~/.claude.json, plugins, and your claude.ai connectors. "needs-auth" servers: run <code>/mcp</code> in a terminal Claude Code session to log in.</div>
+            <div className="modal-actions">
+              <span style={{ flex: 1 }} />
+              <button className="btn primary" onClick={() => setMcpOpen(false)}>
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       <header className="chat-header">
         <Avatar agent={agent} size={20} />
         <span className="name">{agent.name}</span>
@@ -352,6 +380,15 @@ export default function Chat({ agent, msgs, running, onSend, onStop, onEdit, onN
                   }}
                 >
                   ＋ New session
+                </button>
+                <button
+                  className="menu-item"
+                  onClick={() => {
+                    setMenu(false)
+                    setMcpOpen(true)
+                  }}
+                >
+                  🔌 MCP servers{agent.mcp ? ` (${agent.mcp.filter((s) => s.status === 'connected').length}/${agent.mcp.length})` : ''}
                 </button>
                 <button
                   className="menu-item"
@@ -404,7 +441,7 @@ export default function Chat({ agent, msgs, running, onSend, onStop, onEdit, onN
           </div>
         )}
       </div>
-      <Composer agentId={agent.id} agentName={agent.name} running={running} pending={dropped} onClearPending={clearDropped} onSend={onSend} onStop={onStop} names={names} allowPlan />
+      <Composer agentId={agent.id} agentName={agent.name} running={running} pending={dropped} onClearPending={clearDropped} onSend={onSend} onStop={onStop} names={names} allowPlan commands={agent.commands} />
     </div>
   )
 }

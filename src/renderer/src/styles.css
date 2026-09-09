@@ -757,3 +757,9 @@ section.plan-card ul { margin: 0 0 8px; padding-left: 20px; }
 .board-header { padding-left: 84px; } /* clear the traffic lights when the sidebar is hidden */
 .back-btn { -webkit-app-region: no-drag; }
 .board-header .name { margin-left: 4px; }
+
+.mcp-list { display: flex; flex-direction: column; gap: 4px; }
+.mcp-row { display: flex; align-items: center; gap: 10px; padding: 6px 8px; border-radius: 8px; background: #232325; font-size: 13px; }
+.mcp-dot { width: 8px; height: 8px; border-radius: 50%; background: #ff375f; }
+.mcp-dot.ok { background: #34c759; }
+.mcp-name { flex: 1; }

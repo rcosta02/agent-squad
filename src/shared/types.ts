@@ -18,6 +18,8 @@ export type Agent = {
   preview?: string // last assistant line, for sidebar
   unread?: boolean // agent replied while its chat was not on screen
   unreadCount?: number // replies since the chat was last on screen
+  mcp?: { name: string; status: string }[] // from the last session init
+  commands?: string[] // slash commands the CLI reported
 }
 
 export type NoteReply = { author: 'me' | 'agent'; text: string; ts: number }

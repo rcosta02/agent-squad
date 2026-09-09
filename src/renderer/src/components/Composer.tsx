@@ -10,6 +10,7 @@ type Props = {
   onStop: () => void
   names?: string[] // mentionable agent names
   allowPlan?: boolean // show the Plan toggle
+  commands?: string[] // slash commands for autocomplete
 }
 
 export const fileToDataUrl = (f: File) =>
@@ -21,7 +22,7 @@ export const fileToDataUrl = (f: File) =>
   })
 
 // eslint-disable-next-line react-refresh/only-export-components
-export default function Composer({ agentName, agentId, running, pending, onClearPending, onSend, onStop, names = [], allowPlan = false }: Props) {
+export default function Composer({ agentName, agentId, running, pending, onClearPending, onSend, onStop, names = [], allowPlan = false, commands = [] }: Props) {
   const [planMode, setPlanMode] = useState(false)
   const ref = useRef<HTMLTextAreaElement>(null)
   const [text, setText] = useState('')
@@ -31,7 +32,14 @@ export default function Composer({ agentName, agentId, running, pending, onClear
   const before = text.slice(0, caret)
   const at = /(^|\s)@([^@\n]*)$/.exec(before)
   const query = at ? at[2].toLowerCase() : null
-  const suggestions = query !== null ? names.filter((n) => n.toLowerCase().startsWith(query)).slice(0, 6) : []
+  const slash = /^\/([\w-]*)$/.exec(text)
+  const slashSuggestions = slash && commands.length ? commands.filter((c) => c.startsWith(slash[1])).slice(0, 8) : []
+  const suggestions = query !== null ? names.filter((n) => n.toLowerCase().startsWith(query)).slice(0, 6) : slashSuggestions.map((c) => '/' + c)
+  const insertSlash = (cmd: string) => {
+    setText(cmd + ' ')
+    setSel(0)
+    requestAnimationFrame(() => ref.current?.focus())
+  }
   const insertMention = (name: string) => {
     if (!at) return
     const start = caret - at[2].length - 1
@@ -85,7 +93,7 @@ export default function Composer({ agentName, agentId, running, pending, onClear
     if (suggestions.length) {
       if (e.key === 'ArrowDown') return (e.preventDefault(), setSel((p) => (p + 1) % suggestions.length))
       if (e.key === 'ArrowUp') return (e.preventDefault(), setSel((p) => (p - 1 + suggestions.length) % suggestions.length))
-      if (e.key === 'Enter' || e.key === 'Tab') return (e.preventDefault(), insertMention(suggestions[sel]))
+      if (e.key === 'Enter' || e.key === 'Tab') return (e.preventDefault(), suggestions[sel].startsWith('/') && !at ? insertSlash(suggestions[sel]) : insertMention(suggestions[sel]))
       if (e.key === 'Escape') return setText(text) // no-op keeps caret; popup closes on next keystroke
     }
     if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
@@ -113,8 +121,8 @@ export default function Composer({ agentName, agentId, running, pending, onClear
       {suggestions.length > 0 && (
         <div className="mention-pop">
           {suggestions.map((n, i) => (
-            <button key={n} type="button" className={'mention-opt' + (i === sel ? ' active' : '')} onMouseDown={(e) => (e.preventDefault(), insertMention(n))}>
-              @{n}
+            <button key={n} type="button" className={'mention-opt' + (i === sel ? ' active' : '')} onMouseDown={(e) => (e.preventDefault(), n.startsWith('/') && !at ? insertSlash(n) : insertMention(n))}>
+              {n.startsWith('/') && !at ? n : '@' + n}
             </button>
           ))}
         </div>

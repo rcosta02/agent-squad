@@ -714,12 +714,17 @@ export class Sessions {
     // streaming state for this turn
     let current: Extract<Msg, { role: 'assistant' }> | null = null
     let lastText = ''
+    const streamed = new Set<string>() // text blocks already shown via stream events
+    let resultMsg: Msg | null = null
 
     try {
       for await (const m of q as AsyncIterable<SDKMessage>) {
         if ('parent_tool_use_id' in m && m.parent_tool_use_id) continue // hide subagent internals
 
         if (m.type === 'system' && m.subtype === 'init') {
+          const mcp = (m.mcp_servers ?? []).map((s) => ({ name: s.name, status: s.status }))
+          const commands = (m.slash_commands ?? []).filter((c) => !c.startsWith('mcp__'))
+          if (JSON.stringify(mcp) !== JSON.stringify(agent.mcp) || JSON.stringify(commands) !== JSON.stringify(agent.commands)) this.update(id, { mcp, commands })
           if (agent.sessionId !== m.session_id) {
             const sessions = [...(agent.sessions ?? []), { sessionId: m.session_id, startedAt: Date.now(), title: text.split('\n')[0].slice(0, 60) }]
             this.update(id, { sessionId: m.session_id, sessions })
@@ -739,6 +744,7 @@ export class Sessions {
             current.streaming = false
             this.push(agent, msgs, current)
             lastText = current.text
+            streamed.add(current.text.trim())
             current = null
           }
           continue
@@ -746,6 +752,13 @@ export class Sessions {
 
         if (m.type === 'assistant') {
           for (const block of m.message.content) {
+            // Text that never streamed (slash-command output like /usage, /context) still has to show.
+            const t = block.type === 'text' ? block.text.trim() : ''
+            if (block.type === 'text' && t && !streamed.has(t) && current?.text.trim() !== t) {
+              streamed.add(t)
+              lastText = block.text
+              this.push(agent, msgs, { id: randomUUID(), role: 'assistant', text: block.text, ts: Date.now() })
+            }
             if (block.type === 'tool_use') {
               this.push(agent, msgs, {
                 id: randomUUID(),
@@ -777,15 +790,8 @@ export class Sessions {
 
         if (m.type === 'result') {
           const ok = m.subtype === 'success'
-          this.push(agent, msgs, {
-            id: randomUUID(),
-            role: 'result',
-            text: ok ? 'Done' : m.subtype.replace(/_/g, ' '),
-            costUsd: m.total_cost_usd,
-            durationMs: m.duration_ms,
-            error: !ok,
-            ts: Date.now()
-          })
+          // Pushed in `finally`, after the agent is marked idle, so a follow-up send never lands on a busy agent.
+          resultMsg = { id: randomUUID(), role: 'result', text: ok ? 'Done' : m.subtype.replace(/_/g, ' '), costUsd: m.total_cost_usd, durationMs: m.duration_ms, error: !ok, ts: Date.now() }
           if (ok && m.result) lastText = m.result
         }
       }
@@ -797,6 +803,7 @@ export class Sessions {
         this.push(agent, msgs, current)
       }
       this.active.delete(id)
+      if (resultMsg) this.push(agent, msgs, resultMsg)
       this.update(id, { preview: (lastText || 'Done').split('\n')[0].slice(0, 120), updatedAt: Date.now() })
       this.emit({ type: 'status', agentId: id, running: false })
       // Turn was triggered by another agent: send the reply back to them.
