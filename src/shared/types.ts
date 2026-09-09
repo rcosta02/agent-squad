@@ -61,6 +61,21 @@ export type Task = {
 
 export type McpServerInfo = { name: string; scope: 'user' | 'local' | 'project'; transport: string; target: string }
 
+export type MeetingSegment = { t: number; who: 'Me' | 'Them'; text: string } // t = seconds from start
+export type Meeting = {
+  id: string
+  agentId: string // who summarizes
+  title: string
+  dir: string
+  startedAt: number
+  endedAt?: number
+  status: 'recording' | 'stopping' | 'done' | 'summarizing'
+  segments: MeetingSegment[]
+  pendingChunks: number
+  transcriptPath?: string
+  error?: string
+}
+
 export type GroupMsg = { id: string; author: 'me' | string; text: string; ts: number } // author = 'me' or agent id
 
 export type RoutineStatus = 'active' | 'paused' | 'cancelled'
@@ -120,6 +135,7 @@ export type Event =
   | { type: 'plan'; plan: Plan }
   | { type: 'task'; task: Task }
   | { type: 'mcpAuthUrl'; url: string }
+  | { type: 'meeting'; meeting: Meeting }
   | { type: 'taskDeleted'; taskId: string; workspaceId: string }
 
 export type Api = {
@@ -169,6 +185,9 @@ export type Api = {
   mcpAuthDone(): Promise<void> // cancel a running login
   mcpAuthInput(text: string): Promise<void> // answer a prompt of the running login (e.g. paste the redirect URL)
   openExternal(url: string): Promise<void>
+  meetingStart(agentId: string, title: string): Promise<Meeting>
+  meetingStop(): Promise<Meeting | null> // stops, finishes transcription, hands off to the agent
+  meetingCurrent(): Promise<Meeting | null>
   pickFolder(): Promise<string | null>
   pickImage(): Promise<string | null> // data URL of the chosen image file
   pickImages(): Promise<string[]> // data URLs, multi-select

@@ -6,6 +6,7 @@ import type { Event } from '../shared/types'
 import { Sessions } from './sessions'
 import { kbDelete, kbList, kbRead, kbWrite } from './kb'
 import * as mcp from './mcp'
+import { Recorder, summaryPrompt } from './meetings'
 
 // GUI apps on macOS get a bare PATH; pull the user's shell PATH so `claude`, node, MCP servers resolve.
 try {
@@ -16,6 +17,7 @@ try {
 let win: BrowserWindow | null = null
 const emit = (e: Event) => win?.webContents.send('event', e)
 const sessions = new Sessions(emit)
+const recorder = new Recorder((meeting) => emit({ type: 'meeting', meeting }))
 
 const createWindow = () => {
   win = new BrowserWindow({
@@ -94,6 +96,17 @@ ipcMain.handle('mcp:authDone', () => {
   authCtl = null
 })
 ipcMain.handle('mcp:authInput', (_, text) => authCtl?.write(String(text)))
+ipcMain.handle('meeting:start', (_, agentId, title) => recorder.start(agentId, title))
+ipcMain.handle('meeting:stop', async () => {
+  const m = await recorder.stop()
+  if (m && m.status === 'done' && m.transcriptPath) {
+    m.status = 'summarizing'
+    emit({ type: 'meeting', meeting: m })
+    void sessions.send(m.agentId, summaryPrompt(m))
+  }
+  return m
+})
+ipcMain.handle('meeting:current', () => recorder.meeting)
 ipcMain.handle('shell:open', (_, url) => shell.openExternal(String(url)))
 ipcMain.handle('clipboard:write', (_, text) => clipboard.writeText(String(text)))
 ipcMain.handle('dialog:folder', async () => {

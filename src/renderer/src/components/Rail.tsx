@@ -7,9 +7,11 @@ type Props = {
   unread: Record<string, number> // workspaceId -> unread agent count
   onSwitch: (id: string) => void
   onNew: () => void
+  onMeeting: () => void
+  recording: boolean
 }
 
-export default function Rail({ workspaces, currentId, unread, onSwitch, onNew }: Props) {
+export default function Rail({ workspaces, currentId, unread, onSwitch, onNew, onMeeting, recording }: Props) {
   return (
     <nav className="rail">
       <div className="rail-list">
@@ -31,6 +33,13 @@ export default function Rail({ workspaces, currentId, unread, onSwitch, onNew }:
         </button>
       </div>
       <div className="rail-footer">
+        <button className={'rail-tile rail-mic' + (recording ? ' live' : '')} title={recording ? 'Recording… open note taker' : 'Note taker'} onClick={onMeeting}>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+            <rect x="9" y="3" width="6" height="11" rx="3" />
+            <path d="M5 11a7 7 0 0 0 14 0M12 18v3M8 21h8" />
+          </svg>
+          {recording && <span className="rail-badge live">●</span>}
+        </button>
         <span className="initials">RC</span>
       </div>
     </nav>

@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import type { Agent, GroupMsg, Msg, Routine, Task, Workspace } from '../../shared/types'
+import type { Agent, GroupMsg, Meeting, Msg, Routine, Task, Workspace } from '../../shared/types'
 import Chat from './components/Chat'
 import NewAgentModal, { type AgentInput } from './components/NewAgentModal'
 import Rail from './components/Rail'
 import Board from './components/Board'
 import GroupChat from './components/GroupChat'
 import KbModal from './components/KbModal'
+import MeetingView from './components/MeetingView'
 import PlanView from './components/PlanView'
 import RoutinesModal from './components/RoutinesModal'
 import Sidebar from './components/Sidebar'
@@ -47,6 +48,8 @@ export default function App() {
   const [groups, setGroups] = useState<Record<string, GroupMsg[]>>({})
   const [openPlan, setOpenPlan] = useState<string | null>(null)
   const [tasks, setTasks] = useState<Record<string, Task[]>>({})
+  const [meeting, setMeeting] = useState<Meeting | null>(null)
+  const [showMeeting, setShowMeeting] = useState(false)
   const [workspaceId, setWorkspaceId] = useState<string | null>(readWs)
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [messages, setMessages] = useState<Record<string, Msg[]>>({})
@@ -71,13 +74,14 @@ export default function App() {
     setWorkspaceId(id)
     setSelectedId(null)
     setShowBoard(false)
+    setShowMeeting(false)
     try {
       localStorage.setItem(WS_KEY, id)
     } catch {}
   }, [])
   const isGroup = selectedId === 'group'
   const [showBoard, setShowBoard] = useState(false)
-  const isBoard = showBoard
+  const isBoard = showBoard || showMeeting
   const selected = useMemo(
     () => (isGroup || isBoard ? null : (sorted.find((a) => a.id === selectedId) ?? sorted[0] ?? null)),
     [agents, sorted, selectedId, isGroup, isBoard]
@@ -90,6 +94,7 @@ export default function App() {
     api.listWorkspaces().then((ws) => alive && setWorkspaces(ws))
     api.listAgents().then((list) => alive && setAgents(list))
     api.listRoutines().then((rs) => alive && setRoutines(rs))
+    api.meetingCurrent().then((m) => alive && setMeeting(m))
     const off = api.onEvent((e) => {
       switch (e.type) {
         case 'message':
@@ -154,6 +159,9 @@ export default function App() {
           break
         case 'taskDeleted':
           setTasks((prev) => ({ ...prev, [e.workspaceId]: (prev[e.workspaceId] ?? []).filter((t) => t.id !== e.taskId) }))
+          break
+        case 'meeting':
+          setMeeting(e.meeting)
           break
         case 'routineDeleted':
           setRoutines((prev) => prev.filter((r) => r.id !== e.routineId))
@@ -291,7 +299,15 @@ export default function App() {
 
   return (
     <div className="app">
-      <Rail workspaces={workspaces} currentId={workspace?.id ?? null} unread={unreadByWs} onSwitch={switchWorkspace} onNew={() => setModal({ mode: 'ws-create' })} />
+      <Rail
+        workspaces={workspaces}
+        currentId={workspace?.id ?? null}
+        unread={unreadByWs}
+        onSwitch={switchWorkspace}
+        onNew={() => setModal({ mode: 'ws-create' })}
+        onMeeting={() => (setShowBoard(false), setShowMeeting(true))}
+        recording={meeting?.status === 'recording' || meeting?.status === 'stopping'}
+      />
       {!isBoard && (
       <Sidebar
         workspace={workspace}
@@ -310,12 +326,19 @@ export default function App() {
           setSelectedId(id)
         }}
         onNew={() => setModal({ mode: 'create' })}
-        onBoard={() => setShowBoard(true)}
+        onBoard={() => (setShowMeeting(false), setShowBoard(true))}
       />
       )}
       <main className="chat-pane">
         {openPlan ? (
           <PlanView planId={openPlan} onBack={() => setOpenPlan(null)} />
+        ) : showMeeting ? (
+          <MeetingView
+            agents={sorted}
+            meeting={meeting}
+            onBack={() => setShowMeeting(false)}
+            onOpenAgent={(id) => (setShowMeeting(false), setSelectedId(id))}
+          />
         ) : isBoard && workspace ? (
           <Board workspace={workspace} agents={sorted} tasks={tasks[workspace.id] ?? []} running={running} onBack={() => setShowBoard(false)} />
         ) : isGroup && workspace ? (
