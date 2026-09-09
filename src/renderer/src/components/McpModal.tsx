@@ -90,7 +90,7 @@ export default function McpModal({ agent, onClose }: Props) {
           {rows.map((s) => (
             <div key={s.name} className="mcp-item">
               <div className="mcp-row" onClick={() => setExpanded(expanded === s.name ? null : s.name)}>
-                <span className={'mcp-dot ' + (s.status === 'connected' ? 'ok' : s.status === 'needs-auth' ? 'warn' : 'bad')} />
+                <span className={'mcp-dot ' + (s.status === 'connected' ? 'ok' : s.status === 'needs-auth' ? 'warn' : s.status === 'not loaded yet' ? 'idle' : 'bad')} />
                 <span className="mcp-name">{s.name}</span>
                 <span className="hint">
                   {s.cfg ? `${s.cfg.scope} · ${s.cfg.transport}` : isClaudeAi(s.name) ? 'claude.ai' : s.name.startsWith('plugin:') ? 'plugin' : 'app'} · {s.status}
