@@ -18,6 +18,7 @@ export default function McpModal({ agent, onClose }: Props) {
   const [error, setError] = useState('')
   const [auth, setAuth] = useState<{ name: string; url?: string; result?: string } | null>(null)
   const [confirm, setConfirm] = useState<string | null>(null)
+  const [cb, setCb] = useState('')
 
   const refresh = () => api.mcpConfigured(agent.id).then(setConfigured)
   useEffect(() => {
@@ -192,9 +193,15 @@ export default function McpModal({ agent, onClose }: Props) {
                     Open login page again
                   </button>
                 )}
+                <div className="hint">If the browser ends on a localhost error page, paste that page's URL here:</div>
+                <input type="text" className="mono" placeholder="http://localhost:…/callback?code=…" value={cb} onChange={(e) => setCb(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && cb.trim() && (api.mcpAuthInput(cb.trim()), setCb(''))} />
                 <div className="modal-actions">
                   <button className="btn" onClick={() => (api.mcpAuthDone(), setAuth(null))}>
                     Cancel
+                  </button>
+                  <span style={{ flex: 1 }} />
+                  <button className="btn small" disabled={!cb.trim()} onClick={() => (api.mcpAuthInput(cb.trim()), setCb(''))}>
+                    Submit URL
                   </button>
                 </div>
               </>

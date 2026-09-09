@@ -46,6 +46,7 @@ const api: Api = {
   mcpRemove: (agentId, name, scope) => ipcRenderer.invoke('mcp:remove', agentId, name, scope),
   mcpAuthStart: (agentId, name) => ipcRenderer.invoke('mcp:authStart', agentId, name),
   mcpAuthDone: () => ipcRenderer.invoke('mcp:authDone'),
+  mcpAuthInput: (text) => ipcRenderer.invoke('mcp:authInput', text),
   openExternal: (url) => ipcRenderer.invoke('shell:open', url),
   pickFolder: () => ipcRenderer.invoke('dialog:folder'),
   pickImage: () => ipcRenderer.invoke('dialog:image'),

@@ -39,9 +39,11 @@ export function remove(name: string, scope: 'user' | 'local' | 'project', cwd: s
  * OAuth via `claude mcp login <name>`: the CLI opens the browser itself and waits for the localhost callback.
  * Works for direct HTTP/SSE servers and claude.ai connectors. `onUrl` receives the URL if the CLI prints one.
  */
-export function authenticate(name: string, cwd: string, onUrl: (url: string) => void, onCancel: (kill: () => void) => void): Promise<string> {
+export function authenticate(name: string, cwd: string, onUrl: (url: string) => void, onControl: (ctl: { kill: () => void; write: (s: string) => void }) => void): Promise<string> {
   return new Promise((resolve) => {
-    const child = spawn(claudeBin, ['mcp', 'login', name], { cwd, env: process.env, stdio: ['ignore', 'pipe', 'pipe'] })
+    // `claude mcp login` refuses to run without a TTY.
+    // /usr/bin/expect is always present on macOS and allocates a pty even when our own stdin is a pipe; `interact` forwards our stdin to it.
+    const child = spawn('/usr/bin/expect', ['-c', `set timeout -1; spawn ${JSON.stringify(claudeBin)} mcp login ${JSON.stringify(name)}; interact`], { cwd, env: { ...process.env, TERM: 'dumb' }, stdio: ['pipe', 'pipe', 'pipe'] })
     let out = ''
     const onData = (d: Buffer) => {
       const t = d.toString()
@@ -51,9 +53,9 @@ export function authenticate(name: string, cwd: string, onUrl: (url: string) => 
     }
     child.stdout.on('data', onData)
     child.stderr.on('data', onData)
-    onCancel(() => child.kill('SIGTERM'))
+    onControl({ kill: () => child.kill('SIGTERM'), write: (s) => child.stdin.write(s + '\n') })
     child.on('exit', (code) => {
-      const tail = out.replace(/\x1b\[[0-9;]*m/g, '').trim().split('\n').filter(Boolean).slice(-3).join(' ')
+      const tail = out.replace(/\x1b\[[0-9;?]*[A-Za-z]/g, '').replace(/\r/g, '').trim().split('\n').filter(Boolean).slice(-3).join(' ')
       resolve(code === 0 ? `DONE ${tail}` : `FAILED: ${tail || 'exit ' + code}`)
     })
     child.on('error', (e) => resolve(`FAILED: ${e.message}`))

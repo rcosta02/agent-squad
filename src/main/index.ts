@@ -77,7 +77,7 @@ ipcMain.handle('kb:list', (_, wsId) => kbList(sessions.kbDir(wsId)))
 ipcMain.handle('kb:read', (_, wsId, rel) => kbRead(sessions.kbDir(wsId), rel))
 ipcMain.handle('kb:write', (_, wsId, rel, content) => kbWrite(sessions.kbDir(wsId), rel, content))
 ipcMain.handle('kb:delete', (_, wsId, rel) => kbDelete(sessions.kbDir(wsId), rel))
-let authCancel: (() => void) | null = null
+let authCtl: { kill: () => void; write: (s: string) => void } | null = null
 ipcMain.handle('mcp:configured', (_, agentId) => mcp.configured(sessions.cwdOf(agentId)))
 ipcMain.handle('mcp:add', (_, agentId, input) => mcp.add(input, sessions.cwdOf(agentId)))
 ipcMain.handle('mcp:remove', (_, agentId, name, scope) => mcp.remove(name, scope, sessions.cwdOf(agentId)))
@@ -86,13 +86,14 @@ ipcMain.handle('mcp:authStart', (_, agentId, name) =>
     name,
     sessions.cwdOf(agentId),
     (url) => emit({ type: 'mcpAuthUrl', url }),
-    (kill) => (authCancel = kill)
+    (ctl) => (authCtl = ctl)
   )
 )
 ipcMain.handle('mcp:authDone', () => {
-  authCancel?.()
-  authCancel = null
+  authCtl?.kill()
+  authCtl = null
 })
+ipcMain.handle('mcp:authInput', (_, text) => authCtl?.write(String(text)))
 ipcMain.handle('shell:open', (_, url) => shell.openExternal(String(url)))
 ipcMain.handle('clipboard:write', (_, text) => clipboard.writeText(String(text)))
 ipcMain.handle('dialog:folder', async () => {

@@ -167,6 +167,7 @@ export type Api = {
   mcpRemove(agentId: string, name: string, scope: 'user' | 'local' | 'project'): Promise<void>
   mcpAuthStart(agentId: string, name: string): Promise<string> // resolves with DONE / FAILED when the flow ends
   mcpAuthDone(): Promise<void> // cancel a running login
+  mcpAuthInput(text: string): Promise<void> // answer a prompt of the running login (e.g. paste the redirect URL)
   openExternal(url: string): Promise<void>
   pickFolder(): Promise<string | null>
   pickImage(): Promise<string | null> // data URL of the chosen image file
