@@ -1,8 +1,6 @@
-import { execFileSync } from 'node:child_process'
+import { execFileSync, spawn } from 'node:child_process'
 import fs from 'node:fs'
 import path from 'node:path'
-import { shell } from 'electron'
-import { query, type Options } from '@anthropic-ai/claude-agent-sdk'
 import type { McpServerInfo } from '../shared/types'
 
 const claudeBin = process.env.CLAUDE_DESK_CLI || '/Users/rafaelcosta/.local/bin/claude'
@@ -38,62 +36,26 @@ export function remove(name: string, scope: 'user' | 'local' | 'project', cwd: s
 }
 
 /**
- * OAuth for a direct HTTP/SSE server: a short hidden session asks the server's `authenticate` tool for the URL,
- * we open it in the browser, and keep the session alive (streaming input) so the CLI's localhost callback can land.
- * `waitDone` resolves when the user says they finished (or pastes the callback URL); we then ask the CLI to complete/verify.
+ * OAuth via `claude mcp login <name>`: the CLI opens the browser itself and waits for the localhost callback.
+ * Works for direct HTTP/SSE servers and claude.ai connectors. `onUrl` receives the URL if the CLI prints one.
  */
-export async function authenticate(name: string, cwd: string, onUrl: (url: string) => void, waitDone: () => Promise<string | null>): Promise<string> {
-  const slug = name.replace(/[^\w]/g, '_')
-  const startTool = `mcp__${slug}__authenticate`
-  const finishTool = `mcp__${slug}__complete_authentication`
-  const st: { phase: 'start' | 'finish' } = { phase: 'start' }
-  let callbackUrl: string | null = null
-  const input = (async function* () {
-    yield {
-      type: 'user' as const,
-      message: { role: 'user' as const, content: `Call the ${startTool} tool now. Reply with ONLY the authorization URL it returns, nothing else. If the tool does not exist, reply exactly: NO_AUTH_TOOL` },
-      parent_tool_use_id: null,
-      session_id: ''
+export function authenticate(name: string, cwd: string, onUrl: (url: string) => void, onCancel: (kill: () => void) => void): Promise<string> {
+  return new Promise((resolve) => {
+    const child = spawn(claudeBin, ['mcp', 'login', name], { cwd, env: process.env, stdio: ['ignore', 'pipe', 'pipe'] })
+    let out = ''
+    const onData = (d: Buffer) => {
+      const t = d.toString()
+      out += t
+      const url = /https?:\/\/\S+/.exec(t)?.[0]
+      if (url) onUrl(url)
     }
-    callbackUrl = await waitDone()
-    st.phase = 'finish'
-    yield {
-      type: 'user' as const,
-      message: {
-        role: 'user' as const,
-        content: callbackUrl
-          ? `Call ${finishTool} with callback_url "${callbackUrl}". Then reply exactly DONE if it succeeded or FAILED: <reason>.`
-          : `The user says they authorized in the browser. Call ${startTool} again: if it now reports the server is authenticated or lists real tools, reply exactly DONE; otherwise reply FAILED: <reason>.`
-      },
-      parent_tool_use_id: null,
-      session_id: ''
-    }
-  })()
-  const options: Options = {
-    cwd,
-    pathToClaudeCodeExecutable: claudeBin,
-    settingSources: ['user', 'project', 'local'],
-    allowedTools: [startTool, finishTool],
-    maxTurns: 6,
-    systemPrompt: 'You are an auth helper. Follow the instruction literally. No commentary.'
-  }
-  let final = ''
-  for await (const m of query({ prompt: input, options })) {
-    if (m.type === 'assistant') {
-      for (const b of m.message.content) {
-        if (b.type !== 'text') continue
-        const t = b.text.trim()
-        if (st.phase === 'start') {
-          const url = /https?:\/\/\S+/.exec(t)?.[0]
-          if (t === 'NO_AUTH_TOOL') throw new Error('This server has no OAuth flow here (claude.ai connectors authenticate at claude.ai).')
-          if (url) {
-            onUrl(url)
-            void shell.openExternal(url)
-          }
-        } else final = t
-      }
-    }
-    if (m.type === 'result' && st.phase === 'finish') break
-  }
-  return final || 'FAILED: no response'
+    child.stdout.on('data', onData)
+    child.stderr.on('data', onData)
+    onCancel(() => child.kill('SIGTERM'))
+    child.on('exit', (code) => {
+      const tail = out.replace(/\x1b\[[0-9;]*m/g, '').trim().split('\n').filter(Boolean).slice(-3).join(' ')
+      resolve(code === 0 ? `DONE ${tail}` : `FAILED: ${tail || 'exit ' + code}`)
+    })
+    child.on('error', (e) => resolve(`FAILED: ${e.message}`))
+  })
 }

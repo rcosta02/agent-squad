@@ -17,7 +17,6 @@ export default function McpModal({ agent, onClose }: Props) {
   const [scope, setScope] = useState<Scope>('user')
   const [error, setError] = useState('')
   const [auth, setAuth] = useState<{ name: string; url?: string; result?: string } | null>(null)
-  const [cb, setCb] = useState('')
   const [confirm, setConfirm] = useState<string | null>(null)
 
   const refresh = () => api.mcpConfigured(agent.id).then(setConfigured)
@@ -39,7 +38,6 @@ export default function McpModal({ agent, onClose }: Props) {
     ...live.map((s) => ({ ...s, cfg: configured.find((c) => c.name === s.name) })),
     ...configured.filter((c) => !live.some((s) => s.name === c.name)).map((c) => ({ name: c.name, status: 'not loaded yet', tools: [] as string[], cfg: c }))
   ]
-  const isClaudeAi = (n: string) => n.startsWith('claude.ai ')
 
   const submit = async () => {
     setError('')
@@ -72,7 +70,6 @@ export default function McpModal({ agent, onClose }: Props) {
   }
   const startAuth = async (n: string) => {
     setAuth({ name: n })
-    setCb('')
     try {
       const r = await api.mcpAuthStart(agent.id, n)
       setAuth({ name: n, result: r })
@@ -93,17 +90,12 @@ export default function McpModal({ agent, onClose }: Props) {
                 <span className={'mcp-dot ' + (s.status === 'connected' ? 'ok' : s.status === 'needs-auth' ? 'warn' : s.status === 'not loaded yet' ? 'idle' : 'bad')} />
                 <span className="mcp-name">{s.name}</span>
                 <span className="hint">
-                  {s.cfg ? `${s.cfg.scope} · ${s.cfg.transport}` : isClaudeAi(s.name) ? 'claude.ai' : s.name.startsWith('plugin:') ? 'plugin' : 'app'} · {s.status}
+                  {s.cfg ? `${s.cfg.scope} · ${s.cfg.transport}` : s.name.startsWith('claude.ai ') ? 'claude.ai' : s.name.startsWith('plugin:') ? 'plugin' : 'app'} · {s.status}
                   {s.tools?.length ? ` · ${s.tools.length} tools` : ''}
                 </span>
-                {s.status === 'needs-auth' && !isClaudeAi(s.name) && (
+                {s.status === 'needs-auth' && (
                   <button className="btn small primary" onClick={(e) => (e.stopPropagation(), startAuth(s.name))}>
                     Authenticate
-                  </button>
-                )}
-                {s.status === 'needs-auth' && isClaudeAi(s.name) && (
-                  <button className="btn small" onClick={(e) => (e.stopPropagation(), api.openExternal('https://claude.ai/settings/connectors'))}>
-                    Connect at claude.ai
                   </button>
                 )}
                 {s.cfg && (
@@ -192,22 +184,17 @@ export default function McpModal({ agent, onClose }: Props) {
         {auth && (
           <div className="auth-box">
             <div className="drawer-label">Authenticating {auth.name}</div>
-            {!auth.url && !auth.result && <div className="hint">Asking the server for an authorization link…</div>}
-            {auth.url && !auth.result && (
+            {!auth.result && (
               <>
-                <div>Your browser should have opened. If not:</div>
-                <button className="btn small" onClick={() => api.openExternal(auth.url!)}>
-                  Open authorization page
-                </button>
-                <div className="hint">When the browser shows a "callback" page or "you can close this window", come back here. If it shows a localhost error, paste that page's URL:</div>
-                <input type="text" className="mono" placeholder="http://localhost:…/callback?code=…" value={cb} onChange={(e) => setCb(e.target.value)} />
-                <div className="modal-actions">
-                  <button className="btn" onClick={() => (api.mcpAuthDone(null), setAuth(null))}>
-                    Cancel
+                <div>{auth.url ? 'A browser window opened for the login.' : 'Starting the login in your browser…'} Finish it there; this closes automatically.</div>
+                {auth.url && (
+                  <button className="btn small" onClick={() => api.openExternal(auth.url!)}>
+                    Open login page again
                   </button>
-                  <span style={{ flex: 1 }} />
-                  <button className="btn primary" onClick={() => api.mcpAuthDone(cb.trim() || null)}>
-                    I authorized
+                )}
+                <div className="modal-actions">
+                  <button className="btn" onClick={() => (api.mcpAuthDone(), setAuth(null))}>
+                    Cancel
                   </button>
                 </div>
               </>
@@ -215,6 +202,7 @@ export default function McpModal({ agent, onClose }: Props) {
             {auth.result && (
               <>
                 <div className={auth.result.startsWith('DONE') ? 'ok-text' : 'error-text'}>{auth.result}</div>
+                {auth.result.startsWith('DONE') && <div className="hint">Send the agent a message to reconnect and load the tools.</div>}
                 <div className="modal-actions">
                   <span style={{ flex: 1 }} />
                   <button className="btn primary" onClick={() => setAuth(null)}>

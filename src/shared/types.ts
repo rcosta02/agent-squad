@@ -166,7 +166,7 @@ export type Api = {
   mcpAdd(agentId: string, input: { name: string; transport: 'http' | 'sse' | 'stdio'; target: string; args?: string[]; env?: Record<string, string>; headers?: Record<string, string>; scope: 'user' | 'local' | 'project' }): Promise<void>
   mcpRemove(agentId: string, name: string, scope: 'user' | 'local' | 'project'): Promise<void>
   mcpAuthStart(agentId: string, name: string): Promise<string> // resolves with DONE / FAILED when the flow ends
-  mcpAuthDone(callbackUrl: string | null): Promise<void> // user finished in the browser (optionally pasted the callback URL)
+  mcpAuthDone(): Promise<void> // cancel a running login
   openExternal(url: string): Promise<void>
   pickFolder(): Promise<string | null>
   pickImage(): Promise<string | null> // data URL of the chosen image file
