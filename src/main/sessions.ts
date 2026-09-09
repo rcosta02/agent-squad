@@ -3,14 +3,22 @@ import { z } from 'zod'
 import { randomUUID } from 'node:crypto'
 import { app } from 'electron'
 import { execSync } from 'node:child_process'
-import type { Agent, Event, GroupMsg, Msg, Routine, Workspace } from '../shared/types'
-import { loadAgents, loadGroup, loadMessages, loadRoutines, loadWorkspaces, saveAgents, saveAttachment, saveGroup, saveMessages, saveRoutines, saveWorkspaces, deleteMessages } from './store'
+import type { Agent, Annotation, Event, GroupMsg, Msg, Plan, Routine, Workspace } from '../shared/types'
+import { loadAgents, loadGroup, loadMessages, loadPlan, loadRoutines, loadWorkspaces, saveAgents, saveAttachment, saveGroup, saveMessages, savePlan, saveRoutines, saveWorkspaces, deleteMessages } from './store'
 import { cronMatches, isValidCron, nextRun } from './cron'
 import { defaultKbDir, ensureKb, readIndex } from './kb'
 
 type Emit = (e: Event) => void
 type Group = { wsId: string; author: string } // turn triggered from the workspace group chat
 type Pending = { text: string; from?: string; hop: number; routine?: string; group?: Group }
+
+const PLAN_FORMAT = `Write the plan as markdown that renders visually. Use "## " headings — each becomes a card. Recommended cards: Goal · Current vs Target · Changes · Flow · Steps · Risks. Inside cards prefer visuals over prose:
+- \`\`\`mermaid fences for flowchart / sequenceDiagram / stateDiagram / erDiagram (architecture, request flow, states).
+- \`\`\`diff fences for code changes; first line "file: path" names the file.
+- Adjacent \`\`\`before and \`\`\`after fences render side by side (code, config, file trees, API shapes).
+- \`\`\`tree fences for file trees.
+- "- [ ] step" checklists for Steps.
+Keep prose to short bullets. No headings deeper than ##.`
 const MAX_HOPS = 4 // ponytail: A->B->A->B then stop; prevents agents chatting forever
 
 // Electron's process.execPath is not node, so spawn the user's native `claude` binary instead of the SDK's bundled JS.
@@ -35,6 +43,8 @@ export class Sessions {
   private viewing: string | null = null // agent id or 'group:<wsId>' on screen while the window is focused
   private groups = new Map<string, GroupMsg[]>()
   private resetAfter = new Set<string>() // agents that asked for a fresh session once their turn ends
+  private plans = new Map<string, Plan>()
+  private planWaiters = new Map<string, (approve: boolean, feedback: string) => void>() // plan id -> ExitPlanMode resolver
 
   constructor(private emit: Emit) {
     // Migration: agents created before workspaces existed go into a default one.
@@ -233,6 +243,92 @@ export class Sessions {
     }
   }
 
+  // ---------- plans ----------
+  getPlan(id: string) {
+    const p = this.plans.get(id) ?? loadPlan(id)
+    if (!p) throw new Error('No such plan')
+    this.plans.set(id, p)
+    return p
+  }
+
+  private progress(markdown: string) {
+    const boxes = markdown.match(/^\s*[-*]\s+\[( |x|X)\]/gm) ?? []
+    if (!boxes.length) return undefined
+    return { done: boxes.filter((b) => /\[(x|X)\]/.test(b)).length, total: boxes.length }
+  }
+
+  /** Most recent plan of an agent, optionally filtered. Scans memory + disk-loaded plans only (plans are loaded when referenced). */
+  private latestPlan(agentId: string, pred: (p: Plan) => boolean = () => true) {
+    let best: Plan | undefined
+    for (const p of this.plans.values()) if (p.agentId === agentId && pred(p) && (!best || p.createdAt > best.createdAt)) best = p
+    return best
+  }
+
+  private createPlan(agentId: string, markdown: string, status: Plan['status']) {
+    const title = (/^#\s+(.+)$/m.exec(markdown)?.[1] ?? markdown.split('\n').find((l) => l.trim())?.replace(/^#+\s*/, '') ?? 'Plan').trim().slice(0, 80)
+    const p: Plan = { id: randomUUID(), agentId, title, markdown, createdAt: Date.now(), status, annotations: [], revision: 1, progress: this.progress(markdown) }
+    // Revision chain: a plan that follows a "changes" verdict continues it; carry over open notes.
+    const parent = this.latestPlan(agentId, (x) => x.status === 'changes' && !x.childId)
+    if (parent) {
+      p.parentId = parent.id
+      p.revision = parent.revision + 1
+      p.annotations = parent.annotations.filter((a) => !a.resolved).map((a) => ({ ...a, orphaned: !markdown.includes(a.quote) }))
+      parent.childId = p.id
+      savePlan(parent)
+      this.emit({ type: 'plan', plan: parent })
+    }
+    this.plans.set(p.id, p)
+    savePlan(p)
+    this.emit({ type: 'plan', plan: p })
+    const agent = this.get(agentId)
+    this.push(agent, this.getMessages(agentId), { id: p.id, role: 'plan', planId: p.id, title, status, revision: p.revision, progress: p.progress, ts: p.createdAt })
+    return p
+  }
+
+  planRevisions(id: string) {
+    let p = this.getPlan(id)
+    while (p.parentId) p = this.getPlan(p.parentId)
+    const chain = [p]
+    while (p.childId) {
+      p = this.getPlan(p.childId)
+      chain.push(p)
+    }
+    return chain
+  }
+
+  private savePlanAndMsg(p: Plan) {
+    p.progress = this.progress(p.markdown)
+    savePlan(p)
+    this.emit({ type: 'plan', plan: p })
+    const agent = this.get(p.agentId)
+    const msgs = this.getMessages(p.agentId)
+    const m = msgs.find((x) => x.role === 'plan' && x.planId === p.id)
+    if (m && m.role === 'plan') this.push(agent, msgs, { ...m, status: p.status, revision: p.revision, progress: p.progress })
+  }
+
+  private setPlanStatus(p: Plan, status: Plan['status']) {
+    p.status = status
+    this.savePlanAndMsg(p)
+  }
+
+  saveAnnotations(id: string, annotations: Annotation[]) {
+    const p = this.getPlan(id)
+    p.annotations = annotations
+    savePlan(p)
+    this.emit({ type: 'plan', plan: p })
+  }
+
+  /** Approve = let ExitPlanMode through (agent implements). Changes = deny with the feedback so the agent revises. */
+  async respondPlan(id: string, decision: 'approve' | 'changes', feedback: string) {
+    const p = this.getPlan(id)
+    const waiter = this.planWaiters.get(id)
+    this.planWaiters.delete(id)
+    this.setPlanStatus(p, decision === 'approve' ? 'approved' : 'changes')
+    if (waiter) return waiter(decision === 'approve', feedback)
+    // Plan came from present_plan (no gate): reply as a normal message.
+    await this.send(p.agentId, decision === 'approve' ? `Plan "${p.title}" approved. Proceed.` : feedback)
+  }
+
   // ---------- group chat ----------
   getGroup(wsId: string) {
     if (!this.groups.has(wsId)) this.groups.set(wsId, loadGroup(wsId))
@@ -278,7 +374,7 @@ export class Sessions {
     this.pending.delete(toolUseId)
   }
 
-  async send(id: string, text: string, from?: string, hop = 0, routine?: string, imageData?: string[], group?: Group) {
+  async send(id: string, text: string, from?: string, hop = 0, routine?: string, imageData?: string[], group?: Group, planMode = false) {
     const agent = this.get(id)
     if (this.active.has(id)) {
       if (!from && !group) throw new Error('Agent is busy')
@@ -296,6 +392,16 @@ export class Sessions {
     const inKb = (p: unknown) => typeof p === 'string' && !!kbPath && p.startsWith(kbPath + '/')
     const canUseTool: Options['canUseTool'] = (toolName, input, { signal, toolUseID }) =>
       new Promise<PermissionResult>((resolve) => {
+        // Plan mode: the agent's plan arrives here; the user approves or requests changes in the Plan view.
+        if (toolName === 'ExitPlanMode') {
+          const markdown = typeof input.plan === 'string' ? input.plan : ''
+          const p = this.createPlan(id, markdown, 'pending')
+          const finish = (approve: boolean, feedback: string) =>
+            resolve(approve ? { behavior: 'allow', updatedInput: input } : { behavior: 'deny', message: `The user reviewed the plan and requests changes. For each numbered note call mcp__desk__reply_to_note(note, text) saying what you changed or why not, then revise the plan and call ExitPlanMode again.\n\n${feedback}` })
+          this.planWaiters.set(p.id, finish)
+          signal.addEventListener('abort', () => this.planWaiters.delete(p.id), { once: true })
+          return
+        }
         // Knowledge-base edits are always fine: it is the app's own folder, git-tracked.
         if ((toolName === 'Write' || toolName === 'Edit' || toolName === 'MultiEdit') && inKb(input.file_path)) return resolve({ behavior: 'allow', updatedInput: input })
         if (toolName === 'Bash' && kbPath && typeof input.command === 'string' && /^git -C \S+ (add|commit|status|log|diff)\b/.test(input.command) && input.command.includes(kbPath)) return resolve({ behavior: 'allow', updatedInput: input })
@@ -328,6 +434,54 @@ export class Sessions {
             if (!target) return errText(`No agent named "${name}". Use list_agents.`)
             void this.send(target.id, body, agent.name, hop + 1)
             return { content: [{ type: 'text', text: `Delivered to ${target.name}${this.active.has(target.id) ? ' (busy, queued)' : ''}. Their reply will arrive later; finish your turn now.` }] }
+          },
+          { alwaysLoad: true }
+        ),
+        tool(
+          'present_plan',
+          'Show the user a plan or proposal in the visual Plan view (diagrams, diffs, before/after). Use outside plan mode when you want structured review. The user can approve or send annotated feedback, which arrives as a message.',
+          { markdown: z.string() },
+          async ({ markdown }) => {
+            const p = this.createPlan(id, markdown, 'shown')
+            return { content: [{ type: 'text', text: `Plan "${p.title}" shown to the user. Their approval or feedback will arrive as a later message.` }] }
+          },
+          { alwaysLoad: true }
+        ),
+        tool(
+          'reply_to_note',
+          'Reply to a numbered note from the user\'s plan review (the numbers in "Plan feedback"). Say what you changed or why you kept it.',
+          { note: z.number().int().min(1), text: z.string() },
+          async ({ note, text: body }) => {
+            const p = this.latestPlan(id, (x) => x.annotations.length > 0)
+            const a = p?.annotations[note - 1]
+            if (!p || !a) return errText(`No note #${note}`)
+            a.replies = [...(a.replies ?? []), { author: 'agent', text: body, ts: Date.now() }]
+            this.savePlanAndMsg(p)
+            return { content: [{ type: 'text', text: `Reply recorded on note #${note}.` }] }
+          },
+          { alwaysLoad: true }
+        ),
+        tool(
+          'update_plan_step',
+          'Tick (or untick) a checklist step in your latest approved plan as you implement it. `step` is the start of the step text.',
+          { step: z.string(), done: z.boolean().default(true) },
+          async ({ step, done }) => {
+            const p = this.latestPlan(id, (x) => x.status === 'approved' || x.status === 'shown')
+            if (!p) return errText('No approved plan')
+            const needle = step.trim().toLowerCase()
+            let hit = false
+            p.markdown = p.markdown
+              .split('\n')
+              .map((l) => {
+                const m = /^(\s*[-*]\s+)\[( |x|X)\](\s+)(.+)$/.exec(l)
+                if (!m || hit || !m[4].trim().toLowerCase().startsWith(needle)) return l
+                hit = true
+                return `${m[1]}[${done ? 'x' : ' '}]${m[3]}${m[4]}`
+              })
+              .join('\n')
+            if (!hit) return errText(`No step starting with "${step}"`)
+            this.savePlanAndMsg(p)
+            return { content: [{ type: 'text', text: `Step marked ${done ? 'done' : 'not done'} (${p.progress?.done}/${p.progress?.total}).` }] }
           },
           { alwaysLoad: true }
         ),
@@ -391,7 +545,7 @@ export class Sessions {
     const kb = ws?.kbDir ? this.kbDir(ws.id) : undefined
     const kbIndex = kb ? readIndex(kb) : ''
     const append = [
-      `You are the agent named "${agent.name}" inside a desktop app, workspace "${ws?.name ?? ''}". Other agents in this workspace: ${others.map((a) => a.name).join(', ') || 'none'}. To talk to them use ONLY the mcp__desk__message_agent tool (and mcp__desk__list_agents to list them). The built-in SendMessage/ListAgents tools cannot reach these agents. Replies come back later as user messages starting with "Message from <name>:". Mentions: "@Name" in any message refers to that agent; in the workspace #general group chat an @mention delivers the message to them. To reset your own context call mcp__desk__new_session. For scheduled/recurring work use mcp__desk__create_routine (and list_routines / update_routine); the built-in CronCreate, CronList, CronDelete, RemoteTrigger and ScheduleWakeup tools do NOT work in this app.`,
+      `You are the agent named "${agent.name}" inside a desktop app, workspace "${ws?.name ?? ''}". Other agents in this workspace: ${others.map((a) => a.name).join(', ') || 'none'}. To talk to them use ONLY the mcp__desk__message_agent tool (and mcp__desk__list_agents to list them). The built-in SendMessage/ListAgents tools cannot reach these agents. Replies come back later as user messages starting with "Message from <name>:". Mentions: "@Name" in any message refers to that agent; in the workspace #general group chat an @mention delivers the message to them. To reset your own context call mcp__desk__new_session. After a plan is approved, call mcp__desk__update_plan_step as you finish each checklist step. To show the user a visual plan for review call mcp__desk__present_plan with markdown in this format: ${PLAN_FORMAT.replace(/\n/g, ' ')} For scheduled/recurring work use mcp__desk__create_routine (and list_routines / update_routine); the built-in CronCreate, CronList, CronDelete, RemoteTrigger and ScheduleWakeup tools do NOT work in this app.`,
       kb
         ? `Shared knowledge base at ${kb} (markdown, shared by all agents in this workspace). Its index follows. Before working on a repo or answering how something runs or relates, read the relevant page (Read/Grep in that folder). When you learn a durable fact (how to run, gotcha, decision, convention), write it there and update the index; use the kb skill for the rules.\n\n<kb-index>\n${kbIndex}\n</kb-index>`
         : '',
@@ -409,10 +563,11 @@ export class Sessions {
       mcpServers: { desk },
       additionalDirectories: kb ? [kb] : undefined,
       plugins: kb ? [{ type: 'local', path: kb }] : undefined,
-      allowedTools: ['mcp__desk__list_agents', 'mcp__desk__message_agent', 'mcp__desk__create_routine', 'mcp__desk__list_routines', 'mcp__desk__update_routine', 'mcp__desk__new_session'],
+      allowedTools: ['mcp__desk__list_agents', 'mcp__desk__message_agent', 'mcp__desk__create_routine', 'mcp__desk__list_routines', 'mcp__desk__update_routine', 'mcp__desk__new_session', 'mcp__desk__present_plan', 'mcp__desk__reply_to_note', 'mcp__desk__update_plan_step'],
       disallowedTools: ['SendMessage', 'ListAgents', 'CronCreate', 'CronList', 'CronDelete', 'RemoteTrigger', 'ScheduleWakeup'],
-      permissionMode: agent.autonomous ? 'bypassPermissions' : 'default',
-      allowDangerouslySkipPermissions: agent.autonomous || undefined,
+      permissionMode: planMode ? 'plan' : agent.autonomous ? 'bypassPermissions' : 'default',
+      planModeInstructions: planMode ? PLAN_FORMAT : undefined,
+      allowDangerouslySkipPermissions: agent.autonomous && !planMode ? true : undefined,
       canUseTool,
       model: agent.model,
       abortController: abort,

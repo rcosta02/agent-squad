@@ -20,6 +20,22 @@ export type Agent = {
   unreadCount?: number // replies since the chat was last on screen
 }
 
+export type NoteReply = { author: 'me' | 'agent'; text: string; ts: number }
+export type Annotation = { id: string; card: number; quote: string; text: string; ts: number; replies?: NoteReply[]; resolved?: boolean; orphaned?: boolean }
+export type Plan = {
+  id: string
+  agentId: string
+  title: string
+  markdown: string
+  createdAt: number
+  status: 'pending' | 'approved' | 'changes' | 'shown' // pending = agent is waiting (plan mode); shown = informational
+  annotations: Annotation[]
+  parentId?: string // previous revision
+  childId?: string // next revision
+  revision: number // 1-based
+  progress?: { done: number; total: number } // checklist steps
+}
+
 export type GroupMsg = { id: string; author: 'me' | string; text: string; ts: number } // author = 'me' or agent id
 
 export type RoutineStatus = 'active' | 'paused' | 'cancelled'
@@ -63,6 +79,7 @@ export type Msg =
     }
   | { id: string; role: 'result'; text: string; costUsd?: number; durationMs?: number; error?: boolean; ts: number }
   | { id: string; role: 'divider'; text: string; ts: number }
+  | { id: string; role: 'plan'; planId: string; title: string; status: Plan['status']; revision?: number; progress?: { done: number; total: number }; ts: number }
 
 export type Event =
   | { type: 'message'; agentId: string; msg: Msg } // upsert by msg.id
@@ -75,6 +92,7 @@ export type Event =
   | { type: 'routine'; routine: Routine }
   | { type: 'routineDeleted'; routineId: string }
   | { type: 'group'; workspaceId: string; msg: GroupMsg }
+  | { type: 'plan'; plan: Plan }
 
 export type Api = {
   listWorkspaces(): Promise<Workspace[]>
@@ -86,7 +104,12 @@ export type Api = {
   updateAgent(id: string, patch: Partial<Agent>): Promise<Agent>
   deleteAgent(id: string): Promise<void>
   getMessages(agentId: string): Promise<Msg[]>
-  send(agentId: string, text: string, images?: string[]): Promise<void> // images = data URLs; saved to disk and handed to the agent as file paths
+  send(agentId: string, text: string, images?: string[], planMode?: boolean): Promise<void> // images = data URLs; planMode = read-only turn ending in a plan for approval
+  getPlan(id: string): Promise<Plan>
+  respondPlan(id: string, decision: 'approve' | 'changes', feedback: string): Promise<void>
+  saveAnnotations(id: string, annotations: Annotation[]): Promise<void>
+  planRevisions(id: string): Promise<Plan[]> // whole chain, oldest first
+  savePng(name: string, dataUrl: string): Promise<boolean> // save dialog
   interrupt(agentId: string): Promise<void>
   setViewing(id: string | null): Promise<void> // agent id or 'group:<workspaceId>'; which chat is on screen + window focused; marks it read
   getGroup(workspaceId: string): Promise<GroupMsg[]>

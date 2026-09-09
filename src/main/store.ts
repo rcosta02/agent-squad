@@ -1,7 +1,7 @@
 import { app } from 'electron'
 import fs from 'node:fs'
 import path from 'node:path'
-import type { Agent, GroupMsg, Msg, Routine, Workspace } from '../shared/types'
+import type { Agent, GroupMsg, Msg, Plan, Routine, Workspace } from '../shared/types'
 
 // ponytail: flat JSON files, no DB. Fine for hundreds of messages per agent.
 const dir = () => {
@@ -39,6 +39,13 @@ export const loadRoutines = (): Routine[] => readJson<Routine[]>(routinesFile(),
 export const saveRoutines = (rs: Routine[]) => fs.writeFileSync(routinesFile(), JSON.stringify(rs, null, 2))
 export const loadGroup = (wsId: string): GroupMsg[] => readJson<GroupMsg[]>(path.join(dir(), `group-${wsId}.json`), [])
 export const saveGroup = (wsId: string, msgs: GroupMsg[]) => fs.writeFileSync(path.join(dir(), `group-${wsId}.json`), JSON.stringify(msgs))
+const plansDir = () => {
+  const d = path.join(dir(), 'plans')
+  fs.mkdirSync(d, { recursive: true })
+  return d
+}
+export const loadPlan = (id: string): Plan | undefined => readJson<Plan | undefined>(path.join(plansDir(), `${id}.json`), undefined)
+export const savePlan = (p: Plan) => fs.writeFileSync(path.join(plansDir(), `${p.id}.json`), JSON.stringify(p, null, 2))
 export const loadMessages = (id: string): Msg[] => readJson<Msg[]>(msgFile(id), [])
 export const saveMessages = (id: string, msgs: Msg[]) => fs.writeFileSync(msgFile(id), JSON.stringify(msgs))
 export const deleteMessages = (id: string) => fs.rmSync(msgFile(id), { force: true })

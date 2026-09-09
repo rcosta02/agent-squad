@@ -40,8 +40,18 @@ ipcMain.handle('agents:create', (_, input) => sessions.create(input))
 ipcMain.handle('agents:update', (_, id, patch) => sessions.update(id, patch))
 ipcMain.handle('agents:delete', (_, id) => sessions.delete(id))
 ipcMain.handle('messages:get', (_, id) => sessions.getMessages(id))
-ipcMain.handle('chat:send', (_, id, text, images) => {
-  void sessions.send(id, text, undefined, 0, undefined, images) // runs in background; results arrive as events
+ipcMain.handle('chat:send', (_, id, text, images, planMode) => {
+  void sessions.send(id, text, undefined, 0, undefined, images, undefined, planMode) // runs in background; results arrive as events
+})
+ipcMain.handle('plan:get', (_, id) => sessions.getPlan(id))
+ipcMain.handle('plan:respond', (_, id, decision, feedback) => sessions.respondPlan(id, decision, feedback))
+ipcMain.handle('plan:annotations', (_, id, annotations) => sessions.saveAnnotations(id, annotations))
+ipcMain.handle('plan:revisions', (_, id) => sessions.planRevisions(id))
+ipcMain.handle('file:savePng', async (_, name, dataUrl) => {
+  const r = await dialog.showSaveDialog({ defaultPath: path.join(app.getPath('downloads'), name) })
+  if (r.canceled || !r.filePath) return false
+  fs.writeFileSync(r.filePath, Buffer.from(String(dataUrl).split(',')[1] ?? '', 'base64'))
+  return true
 })
 ipcMain.handle('chat:interrupt', (_, id) => sessions.interrupt(id))
 ipcMain.handle('view:set', (_, id) => sessions.setViewing(id))

@@ -11,7 +11,8 @@ type Props = {
   agent: Agent
   msgs: Msg[] | undefined
   running: boolean
-  onSend: (text: string, images: string[]) => void
+  onSend: (text: string, images: string[], planMode: boolean) => void
+  onOpenPlan: (planId: string) => void
   onStop: () => void
   onEdit: () => void
   onNewSession: () => void
@@ -101,6 +102,13 @@ export function Markdown({ text }: { text: string }) {
   let k = 0
   while (i < lines.length) {
     const line = lines[i]
+    const img = /^!\[([^\]]*)\]\(([^)]+)\)\s*$/.exec(line)
+    if (img) {
+      const src = img[2].startsWith('/') ? 'file://' + img[2] : img[2]
+      blocks.push(<img key={k++} className="md-img" src={src} alt={img[1]} />)
+      i++
+      continue
+    }
     if (line.startsWith('```')) {
       const buf: string[] = []
       i++
@@ -200,7 +208,7 @@ function statusText(msgs: Msg[] | undefined, running: boolean): string | null {
   return 'Thinking…'
 }
 
-export default function Chat({ agent, msgs, running, onSend, onStop, onEdit, onNewSession, onSwitchSession, onPermission, onRoutines, routineCount, names }: Props) {
+export default function Chat({ agent, msgs, running, onSend, onStop, onEdit, onNewSession, onSwitchSession, onPermission, onRoutines, routineCount, names, onOpenPlan }: Props) {
   setMentionNames(names)
   const listRef = useRef<HTMLDivElement>(null)
   const [menu, setMenu] = useState(false)
@@ -272,6 +280,27 @@ export default function Chat({ agent, msgs, running, onSend, onStop, onEdit, onN
           break
         case 'result':
           items.push(<ResultLine key={m.id} msg={m} />)
+          break
+        case 'plan':
+          items.push(
+            <div key={m.id} className="msg-row">
+              <button className={'plan-card ' + m.status} onClick={() => onOpenPlan(m.planId)}>
+                <span className="plan-ico">📋</span>
+                <span className="plan-title">{m.title}</span>
+                {m.revision && m.revision > 1 && <span className="hint">rev {m.revision}</span>}
+                {m.progress && (
+                  <span className="progress">
+                    <span className="progress-bar" style={{ width: `${Math.round((100 * m.progress.done) / m.progress.total)}%` }} />
+                    <span className="progress-txt">
+                      {m.progress.done}/{m.progress.total}
+                    </span>
+                  </span>
+                )}
+                <span className={'pill ' + m.status}>{m.status === 'pending' ? 'needs review' : m.status}</span>
+                <span className="plan-open">Open →</span>
+              </button>
+            </div>
+          )
           break
         case 'divider':
           items.push(
@@ -375,7 +404,7 @@ export default function Chat({ agent, msgs, running, onSend, onStop, onEdit, onN
           </div>
         )}
       </div>
-      <Composer agentId={agent.id} agentName={agent.name} running={running} pending={dropped} onClearPending={clearDropped} onSend={onSend} onStop={onStop} names={names} />
+      <Composer agentId={agent.id} agentName={agent.name} running={running} pending={dropped} onClearPending={clearDropped} onSend={onSend} onStop={onStop} names={names} allowPlan />
     </div>
   )
 }

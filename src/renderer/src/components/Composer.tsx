@@ -6,9 +6,10 @@ type Props = {
   running: boolean
   pending: string[] // images dropped onto the chat, as data URLs
   onClearPending: () => void
-  onSend: (text: string, images: string[]) => void
+  onSend: (text: string, images: string[], planMode: boolean) => void
   onStop: () => void
   names?: string[] // mentionable agent names
+  allowPlan?: boolean // show the Plan toggle
 }
 
 export const fileToDataUrl = (f: File) =>
@@ -20,7 +21,8 @@ export const fileToDataUrl = (f: File) =>
   })
 
 // eslint-disable-next-line react-refresh/only-export-components
-export default function Composer({ agentName, agentId, running, pending, onClearPending, onSend, onStop, names = [] }: Props) {
+export default function Composer({ agentName, agentId, running, pending, onClearPending, onSend, onStop, names = [], allowPlan = false }: Props) {
+  const [planMode, setPlanMode] = useState(false)
   const ref = useRef<HTMLTextAreaElement>(null)
   const [text, setText] = useState('')
   const [sel, setSel] = useState(0)
@@ -73,7 +75,8 @@ export default function Composer({ agentName, agentId, running, pending, onClear
   const submit = () => {
     const t = text.trim()
     if (!t && images.length === 0) return
-    onSend(t || 'See attached image.', images)
+    onSend(t || 'See attached image.', images, planMode)
+    setPlanMode(false)
     setText('')
     setImages([])
   }
@@ -138,11 +141,16 @@ export default function Composer({ agentName, agentId, running, pending, onClear
           ref={ref}
           rows={1}
           value={text}
-          placeholder={`Message ${agentName}`}
+          placeholder={planMode ? `Ask ${agentName} for a plan (read-only, needs your approval)` : `Message ${agentName}`}
           onChange={(e) => setText(e.target.value)}
           onKeyDown={onKey}
           onPaste={onPaste}
         />
+        {allowPlan && (
+          <button className={'plan-toggle' + (planMode ? ' on' : '')} title="Plan mode: agent only reads and proposes a plan you approve" type="button" onClick={() => setPlanMode((v) => !v)}>
+            📋 Plan
+          </button>
+        )}
         {running ? (
           <button className="round-btn stop" title="Stop" onClick={onStop} type="button">
             <svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor">

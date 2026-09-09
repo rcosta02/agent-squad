@@ -5,6 +5,7 @@ import NewAgentModal, { type AgentInput } from './components/NewAgentModal'
 import Rail from './components/Rail'
 import GroupChat from './components/GroupChat'
 import KbModal from './components/KbModal'
+import PlanView from './components/PlanView'
 import RoutinesModal from './components/RoutinesModal'
 import Sidebar from './components/Sidebar'
 import WorkspaceModal from './components/WorkspaceModal'
@@ -43,6 +44,7 @@ export default function App() {
   const [workspaces, setWorkspaces] = useState<Workspace[]>([])
   const [routines, setRoutines] = useState<Routine[]>([])
   const [groups, setGroups] = useState<Record<string, GroupMsg[]>>({})
+  const [openPlan, setOpenPlan] = useState<string | null>(null)
   const [workspaceId, setWorkspaceId] = useState<string | null>(readWs)
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [messages, setMessages] = useState<Record<string, Msg[]>>({})
@@ -197,8 +199,8 @@ export default function App() {
   }, [isGroup, workspace?.id])
 
   const send = useCallback(
-    (text: string, images: string[]) => {
-      if (selected) void api.send(selected.id, text, images.length ? images : undefined)
+    (text: string, images: string[], planMode: boolean) => {
+      if (selected) void api.send(selected.id, text, images.length ? images : undefined, planMode)
     },
     [selected]
   )
@@ -273,11 +275,16 @@ export default function App() {
         running={running}
         search={search}
         onSearch={setSearch}
-        onSelect={setSelectedId}
+        onSelect={(id) => {
+          setOpenPlan(null)
+          setSelectedId(id)
+        }}
         onNew={() => setModal({ mode: 'create' })}
       />
       <main className="chat-pane">
-        {isGroup && workspace ? (
+        {openPlan ? (
+          <PlanView planId={openPlan} onBack={() => setOpenPlan(null)} />
+        ) : isGroup && workspace ? (
           <GroupChat agents={sorted} msgs={groups[workspace.id]} running={running} onSend={(t) => void api.sendGroup(workspace.id, t)} />
         ) : selected ? (
           <Chat
@@ -292,6 +299,7 @@ export default function App() {
             onRoutines={() => setModal({ mode: 'routines', agentId: selected.id })}
             routineCount={routines.filter((r) => r.agentId === selected.id && r.status === 'active').length}
             names={names}
+            onOpenPlan={setOpenPlan}
             onPermission={respond}
           />
         ) : (
