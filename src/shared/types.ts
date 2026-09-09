@@ -1,6 +1,6 @@
 // Shared contract between main (Electron) and renderer (React).
 
-export type Workspace = { id: string; name: string; emoji: string; image?: string; kbDir?: string; groupUnread?: number } // image = small data URL; empty = initials. kbDir = shared knowledge base folder
+export type Workspace = { id: string; name: string; emoji: string; image?: string; kbDir?: string; groupUnread?: number; boardUnread?: number } // image = small data URL; empty = initials. kbDir = shared knowledge base folder
 
 export type Agent = {
   id: string
@@ -34,6 +34,27 @@ export type Plan = {
   childId?: string // next revision
   revision: number // 1-based
   progress?: { done: number; total: number } // checklist steps
+}
+
+export type TaskStatus = 'backlog' | 'todo' | 'in_progress' | 'review' | 'done'
+export type TaskPriority = 'low' | 'normal' | 'high' | 'urgent'
+export type TaskComment = { author: 'me' | string; text: string; ts: number } // author = 'me' or agent id
+export type Task = {
+  id: string
+  number: number // per-workspace, for "#12"
+  workspaceId: string
+  title: string
+  description: string
+  status: TaskStatus
+  order: number // sort key within a column
+  assignee?: 'me' | string // agent id
+  priority: TaskPriority
+  labels: string[]
+  createdBy: 'me' | string
+  createdAt: number
+  updatedAt: number
+  planId?: string
+  comments: TaskComment[]
 }
 
 export type GroupMsg = { id: string; author: 'me' | string; text: string; ts: number } // author = 'me' or agent id
@@ -93,6 +114,8 @@ export type Event =
   | { type: 'routineDeleted'; routineId: string }
   | { type: 'group'; workspaceId: string; msg: GroupMsg }
   | { type: 'plan'; plan: Plan }
+  | { type: 'task'; task: Task }
+  | { type: 'taskDeleted'; taskId: string; workspaceId: string }
 
 export type Api = {
   listWorkspaces(): Promise<Workspace[]>
@@ -113,6 +136,12 @@ export type Api = {
   interrupt(agentId: string): Promise<void>
   setViewing(id: string | null): Promise<void> // agent id or 'group:<workspaceId>'; which chat is on screen + window focused; marks it read
   getGroup(workspaceId: string): Promise<GroupMsg[]>
+  listTasks(workspaceId: string): Promise<Task[]>
+  createTask(input: { workspaceId: string; title: string; status?: TaskStatus; assignee?: string; priority?: TaskPriority; description?: string; labels?: string[]; planId?: string }): Promise<Task>
+  updateTask(id: string, patch: Partial<Task>): Promise<Task>
+  deleteTask(id: string): Promise<void>
+  commentTask(id: string, text: string): Promise<Task>
+  askAgent(taskId: string): Promise<void> // explicit: message the assignee to work on it
   sendGroup(workspaceId: string, text: string): Promise<void> // @mentioned agents receive it
   newSession(agentId: string): Promise<void>
   switchSession(agentId: string, sessionId: string): Promise<void>

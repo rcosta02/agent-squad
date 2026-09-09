@@ -3,8 +3,8 @@ import { z } from 'zod'
 import { randomUUID } from 'node:crypto'
 import { app } from 'electron'
 import { execSync } from 'node:child_process'
-import type { Agent, Annotation, Event, GroupMsg, Msg, Plan, Routine, Workspace } from '../shared/types'
-import { loadAgents, loadGroup, loadMessages, loadPlan, loadRoutines, loadWorkspaces, saveAgents, saveAttachment, saveGroup, saveMessages, savePlan, saveRoutines, saveWorkspaces, deleteMessages } from './store'
+import type { Agent, Annotation, Event, GroupMsg, Msg, Plan, Routine, Task, TaskStatus, Workspace } from '../shared/types'
+import { loadAgents, loadGroup, loadMessages, loadPlan, loadRoutines, loadTasks, loadWorkspaces, saveAgents, saveAttachment, saveGroup, saveMessages, savePlan, saveRoutines, saveTasks, saveWorkspaces, deleteMessages } from './store'
 import { cronMatches, isValidCron, nextRun } from './cron'
 import { defaultKbDir, ensureKb, readIndex } from './kb'
 
@@ -44,6 +44,7 @@ export class Sessions {
   private groups = new Map<string, GroupMsg[]>()
   private resetAfter = new Set<string>() // agents that asked for a fresh session once their turn ends
   private plans = new Map<string, Plan>()
+  private tasks = new Map<string, Task[]>() // workspaceId -> tasks
   private planWaiters = new Map<string, (approve: boolean, feedback: string) => void>() // plan id -> ExitPlanMode resolver
 
   constructor(private emit: Emit) {
@@ -241,6 +242,95 @@ export class Sessions {
       const w = this.workspaces.find((x) => x.id === id.slice(6))
       if (w?.groupUnread) this.updateWorkspace(w.id, { groupUnread: 0 })
     }
+    if (id?.startsWith('board:')) {
+      const w = this.workspaces.find((x) => x.id === id.slice(6))
+      if (w?.boardUnread) this.updateWorkspace(w.id, { boardUnread: 0 })
+    }
+  }
+
+  // ---------- tasks (kanban) ----------
+  listTasks(wsId: string) {
+    if (!this.tasks.has(wsId)) this.tasks.set(wsId, loadTasks(wsId))
+    return this.tasks.get(wsId)!
+  }
+
+  private findTask(id: string) {
+    for (const [wsId, list] of this.tasks) {
+      const t = list.find((x) => x.id === id)
+      if (t) return { t, wsId, list }
+    }
+    for (const w of this.workspaces) {
+      const list = this.listTasks(w.id)
+      const t = list.find((x) => x.id === id)
+      if (t) return { t, wsId: w.id, list }
+    }
+    throw new Error('No such task')
+  }
+
+  private emitTask(wsId: string, t: Task, by: 'me' | string, attention = false) {
+    saveTasks(wsId, this.listTasks(wsId))
+    this.emit({ type: 'task', task: t })
+    // Agent did something you should look at (moved to review / commented) while the board is not on screen.
+    if (by !== 'me' && attention && this.viewing !== `board:${wsId}`) {
+      const w = this.workspaces.find((x) => x.id === wsId)
+      if (w) this.updateWorkspace(wsId, { boardUnread: (w.boardUnread ?? 0) + 1 })
+    }
+  }
+
+  createTask(input: { workspaceId: string; title: string; status?: TaskStatus; assignee?: string; priority?: Task['priority']; description?: string; labels?: string[]; planId?: string }, by: 'me' | string) {
+    const list = this.listTasks(input.workspaceId)
+    const status = input.status ?? 'todo'
+    const t: Task = {
+      id: randomUUID(),
+      number: list.reduce((m, x) => Math.max(m, x.number), 0) + 1,
+      workspaceId: input.workspaceId,
+      title: input.title.trim(),
+      description: input.description ?? '',
+      status,
+      order: list.filter((x) => x.status === status).reduce((m, x) => Math.max(m, x.order), 0) + 1,
+      assignee: input.assignee,
+      priority: input.priority ?? 'normal',
+      labels: input.labels ?? [],
+      createdBy: by,
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+      planId: input.planId,
+      comments: []
+    }
+    list.push(t)
+    this.emitTask(input.workspaceId, t, by, true)
+    return t
+  }
+
+  updateTask(id: string, patch: Partial<Task>, by: 'me' | string) {
+    const { t, wsId } = this.findTask(id)
+    const movedToReview = patch.status === 'review' && t.status !== 'review'
+    Object.assign(t, patch, { id, workspaceId: wsId, number: t.number, updatedAt: Date.now() })
+    this.emitTask(wsId, t, by, movedToReview)
+    return t
+  }
+
+  commentTask(id: string, text: string, by: 'me' | string) {
+    const { t, wsId } = this.findTask(id)
+    t.comments.push({ author: by, text, ts: Date.now() })
+    t.updatedAt = Date.now()
+    this.emitTask(wsId, t, by, true)
+    return t
+  }
+
+  deleteTask(id: string) {
+    const { wsId, list } = this.findTask(id)
+    this.tasks.set(wsId, list.filter((x) => x.id !== id))
+    saveTasks(wsId, this.tasks.get(wsId)!)
+    this.emit({ type: 'taskDeleted', taskId: id, workspaceId: wsId })
+  }
+
+  /** The only way a task reaches an agent: an explicit ask from the board. */
+  async askAgent(id: string) {
+    const { t } = this.findTask(id)
+    if (!t.assignee || t.assignee === 'me') throw new Error('Assign the task to an agent first')
+    const text = `Work on task #${t.number}: ${t.title}${t.description ? `\n\n${t.description}` : ''}\n\n(Board task. Move it to In progress when you start and to Review with a summary comment when done — use the task tools.)`
+    await this.send(t.assignee, text)
   }
 
   // ---------- plans ----------
@@ -485,6 +575,42 @@ export class Sessions {
           },
           { alwaysLoad: true }
         ),
+        tool('list_tasks', 'List the workspace kanban board. Statuses: backlog, todo, in_progress, review, done.', { status: z.enum(['backlog', 'todo', 'in_progress', 'review', 'done']).optional(), mine: z.boolean().optional() }, async ({ status, mine }) => {
+          const rows = this.listTasks(agent.workspaceId)
+            .filter((t) => (!status || t.status === status) && (!mine || t.assignee === id))
+            .map((t) => `#${t.number} [${t.status}] (${t.priority}) ${t.title}${t.assignee ? ' → ' + (t.assignee === 'me' ? 'Rafael' : (this.agents.find((a) => a.id === t.assignee)?.name ?? '?')) : ''}`)
+          return { content: [{ type: 'text', text: rows.join('\n') || 'No tasks.' }] }
+        }, { alwaysLoad: true }),
+        tool(
+          'create_task',
+          'Create a task on the workspace board. Nobody starts working on it automatically.',
+          { title: z.string(), description: z.string().optional(), assignee: z.string().optional().describe('agent name, or "me" for the user'), priority: z.enum(['low', 'normal', 'high', 'urgent']).optional(), labels: z.array(z.string()).optional(), status: z.enum(['backlog', 'todo']).optional() },
+          async ({ title, description, assignee, priority, labels, status }) => {
+            const who = assignee?.toLowerCase() === 'me' || assignee?.toLowerCase() === 'rafael' ? 'me' : assignee ? this.agents.find((a) => a.workspaceId === agent.workspaceId && a.name.toLowerCase() === assignee.toLowerCase())?.id : undefined
+            if (assignee && !who) return errText(`No agent named "${assignee}"`)
+            const t = this.createTask({ workspaceId: agent.workspaceId, title, description, assignee: who, priority, labels, status }, id)
+            return { content: [{ type: 'text', text: `Created task #${t.number}.` }] }
+          },
+          { alwaysLoad: true }
+        ),
+        tool(
+          'update_task',
+          'Move or edit a board task by number. Agents may not move tasks to done; move to review with a comment instead.',
+          { number: z.number().int(), status: z.enum(['backlog', 'todo', 'in_progress', 'review']).optional(), title: z.string().optional(), description: z.string().optional(), priority: z.enum(['low', 'normal', 'high', 'urgent']).optional(), comment: z.string().optional() },
+          async ({ number, status, title, description, priority, comment }) => {
+            const t = this.listTasks(agent.workspaceId).find((x) => x.number === number)
+            if (!t) return errText(`No task #${number}`)
+            const patch: Partial<Task> = {}
+            if (status) patch.status = status
+            if (title) patch.title = title
+            if (description !== undefined) patch.description = description
+            if (priority) patch.priority = priority
+            if (Object.keys(patch).length) this.updateTask(t.id, patch, id)
+            if (comment) this.commentTask(t.id, comment, id)
+            return { content: [{ type: 'text', text: `Task #${number} updated${status ? ' → ' + status : ''}.` }] }
+          },
+          { alwaysLoad: true }
+        ),
         tool(
           'new_session',
           'Start a fresh session for yourself once this reply is finished: your conversation context is cleared (the transcript stays visible to the user). Use when the user asks you to reset/start over, or when your context is bloated with unrelated work. Finish what you are saying first.',
@@ -545,7 +671,7 @@ export class Sessions {
     const kb = ws?.kbDir ? this.kbDir(ws.id) : undefined
     const kbIndex = kb ? readIndex(kb) : ''
     const append = [
-      `You are the agent named "${agent.name}" inside a desktop app, workspace "${ws?.name ?? ''}". Other agents in this workspace: ${others.map((a) => a.name).join(', ') || 'none'}. To talk to them use ONLY the mcp__desk__message_agent tool (and mcp__desk__list_agents to list them). The built-in SendMessage/ListAgents tools cannot reach these agents. Replies come back later as user messages starting with "Message from <name>:". Mentions: "@Name" in any message refers to that agent; in the workspace #general group chat an @mention delivers the message to them. To reset your own context call mcp__desk__new_session. After a plan is approved, call mcp__desk__update_plan_step as you finish each checklist step. To show the user a visual plan for review call mcp__desk__present_plan with markdown in this format: ${PLAN_FORMAT.replace(/\n/g, ' ')} For scheduled/recurring work use mcp__desk__create_routine (and list_routines / update_routine); the built-in CronCreate, CronList, CronDelete, RemoteTrigger and ScheduleWakeup tools do NOT work in this app.`,
+      `You are the agent named "${agent.name}" inside a desktop app, workspace "${ws?.name ?? ''}". Other agents in this workspace: ${others.map((a) => a.name).join(', ') || 'none'}. To talk to them use ONLY the mcp__desk__message_agent tool (and mcp__desk__list_agents to list them). The built-in SendMessage/ListAgents tools cannot reach these agents. Replies come back later as user messages starting with "Message from <name>:". Mentions: "@Name" in any message refers to that agent; in the workspace #general group chat an @mention delivers the message to them. To reset your own context call mcp__desk__new_session. You share a kanban board with the user (mcp__desk__list_tasks / create_task / update_task). The board never starts work by itself: only act on a task when the user explicitly asks you to work on it. When you start one, move it to in_progress; when finished, move it to review with a summary comment; never move a task to done. After a plan is approved, call mcp__desk__update_plan_step as you finish each checklist step. To show the user a visual plan for review call mcp__desk__present_plan with markdown in this format: ${PLAN_FORMAT.replace(/\n/g, ' ')} For scheduled/recurring work use mcp__desk__create_routine (and list_routines / update_routine); the built-in CronCreate, CronList, CronDelete, RemoteTrigger and ScheduleWakeup tools do NOT work in this app.`,
       kb
         ? `Shared knowledge base at ${kb} (markdown, shared by all agents in this workspace). Its index follows. Before working on a repo or answering how something runs or relates, read the relevant page (Read/Grep in that folder). When you learn a durable fact (how to run, gotcha, decision, convention), write it there and update the index; use the kb skill for the rules.\n\n<kb-index>\n${kbIndex}\n</kb-index>`
         : '',
@@ -563,7 +689,7 @@ export class Sessions {
       mcpServers: { desk },
       additionalDirectories: kb ? [kb] : undefined,
       plugins: kb ? [{ type: 'local', path: kb }] : undefined,
-      allowedTools: ['mcp__desk__list_agents', 'mcp__desk__message_agent', 'mcp__desk__create_routine', 'mcp__desk__list_routines', 'mcp__desk__update_routine', 'mcp__desk__new_session', 'mcp__desk__present_plan', 'mcp__desk__reply_to_note', 'mcp__desk__update_plan_step'],
+      allowedTools: ['mcp__desk__list_agents', 'mcp__desk__message_agent', 'mcp__desk__create_routine', 'mcp__desk__list_routines', 'mcp__desk__update_routine', 'mcp__desk__new_session', 'mcp__desk__present_plan', 'mcp__desk__reply_to_note', 'mcp__desk__update_plan_step', 'mcp__desk__list_tasks', 'mcp__desk__create_task', 'mcp__desk__update_task'],
       disallowedTools: ['SendMessage', 'ListAgents', 'CronCreate', 'CronList', 'CronDelete', 'RemoteTrigger', 'ScheduleWakeup'],
       permissionMode: planMode ? 'plan' : agent.autonomous ? 'bypassPermissions' : 'default',
       planModeInstructions: planMode ? PLAN_FORMAT : undefined,

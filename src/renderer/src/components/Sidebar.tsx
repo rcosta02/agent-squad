@@ -11,6 +11,7 @@ type Props = {
   agents: Agent[]
   selectedId: string | null // agent id or 'group'
   groupUnread: number
+  boardUnread: number
   running: Set<string>
   search: string
   onSearch: (q: string) => void
@@ -18,7 +19,7 @@ type Props = {
   onNew: () => void
 }
 
-export default function Sidebar({ workspace, onNewWorkspace, onEditWorkspace, onOpenKb, agents, selectedId, groupUnread, running, search, onSearch, onSelect, onNew }: Props) {
+export default function Sidebar({ workspace, onNewWorkspace, onEditWorkspace, onOpenKb, agents, selectedId, groupUnread, boardUnread, running, search, onSearch, onSelect, onNew }: Props) {
   const [menu, setMenu] = useState(false)
   const q = search.trim().toLowerCase()
   const visible = q
@@ -94,6 +95,18 @@ export default function Sidebar({ workspace, onNewWorkspace, onEditWorkspace, on
               <div className="agent-row-preview">Everyone · @mention to ask</div>
             </div>
             {groupUnread > 0 && <span className="unread-pill">{groupUnread}</span>}
+          </button>
+        )}
+        {!q && (
+          <button className={'agent-row group-row' + (selectedId === 'board' ? ' selected' : '') + (boardUnread ? ' unread' : '')} onClick={() => onSelect('board')}>
+            <span className="group-avatar board">⊞</span>
+            <div className="agent-row-body">
+              <div className="agent-row-top">
+                <span className="agent-row-name">Board</span>
+              </div>
+              <div className="agent-row-preview">Tasks · nothing starts by itself</div>
+            </div>
+            {boardUnread > 0 && <span className="unread-pill">{boardUnread}</span>}
           </button>
         )}
         {visible.map((a) => (

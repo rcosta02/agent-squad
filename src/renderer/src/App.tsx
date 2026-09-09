@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import type { Agent, GroupMsg, Msg, Routine, Workspace } from '../../shared/types'
+import type { Agent, GroupMsg, Msg, Routine, Task, Workspace } from '../../shared/types'
 import Chat from './components/Chat'
 import NewAgentModal, { type AgentInput } from './components/NewAgentModal'
 import Rail from './components/Rail'
+import Board from './components/Board'
 import GroupChat from './components/GroupChat'
 import KbModal from './components/KbModal'
 import PlanView from './components/PlanView'
@@ -45,6 +46,7 @@ export default function App() {
   const [routines, setRoutines] = useState<Routine[]>([])
   const [groups, setGroups] = useState<Record<string, GroupMsg[]>>({})
   const [openPlan, setOpenPlan] = useState<string | null>(null)
+  const [tasks, setTasks] = useState<Record<string, Task[]>>({})
   const [workspaceId, setWorkspaceId] = useState<string | null>(readWs)
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [messages, setMessages] = useState<Record<string, Msg[]>>({})
@@ -62,6 +64,7 @@ export default function App() {
     const m: Record<string, number> = {}
     for (const a of agents) if (a.unread) m[a.workspaceId] = (m[a.workspaceId] ?? 0) + 1
     for (const w of workspaces) if (w.groupUnread) m[w.id] = (m[w.id] ?? 0) + 1
+    for (const w of workspaces) if (w.boardUnread) m[w.id] = (m[w.id] ?? 0) + 1
     return m
   }, [agents, workspaces])
   const switchWorkspace = useCallback((id: string) => {
@@ -72,9 +75,10 @@ export default function App() {
     } catch {}
   }, [])
   const isGroup = selectedId === 'group'
+  const isBoard = selectedId === 'board'
   const selected = useMemo(
-    () => (isGroup ? null : (sorted.find((a) => a.id === selectedId) ?? sorted[0] ?? null)),
-    [agents, sorted, selectedId, isGroup]
+    () => (isGroup || isBoard ? null : (sorted.find((a) => a.id === selectedId) ?? sorted[0] ?? null)),
+    [agents, sorted, selectedId, isGroup, isBoard]
   )
   const names = useMemo(() => sorted.filter((a) => a.id !== selected?.id).map((a) => a.name), [sorted, selected])
 
@@ -138,6 +142,17 @@ export default function App() {
             return { ...prev, [e.workspaceId]: [...list, e.msg] }
           })
           break
+        case 'task':
+          setTasks((prev) => {
+            const list = prev[e.task.workspaceId] ?? []
+            const i = list.findIndex((t) => t.id === e.task.id)
+            const next = i < 0 ? [...list, e.task] : list.map((t) => (t.id === e.task.id ? e.task : t))
+            return { ...prev, [e.task.workspaceId]: next }
+          })
+          break
+        case 'taskDeleted':
+          setTasks((prev) => ({ ...prev, [e.workspaceId]: (prev[e.workspaceId] ?? []).filter((t) => t.id !== e.taskId) }))
+          break
         case 'routineDeleted':
           setRoutines((prev) => prev.filter((r) => r.id !== e.routineId))
           break
@@ -177,7 +192,7 @@ export default function App() {
 
   // Tell main which chat is on screen (only while the window is focused) so it can track unread.
   useEffect(() => {
-    const sync = () => void api.setViewing(document.hasFocus() ? (isGroup && workspace ? `group:${workspace.id}` : (selected?.id ?? null)) : null)
+    const sync = () => void api.setViewing(document.hasFocus() ? (isGroup && workspace ? `group:${workspace.id}` : isBoard && workspace ? `board:${workspace.id}` : (selected?.id ?? null)) : null)
     sync()
     window.addEventListener('focus', sync)
     window.addEventListener('blur', sync)
@@ -185,7 +200,18 @@ export default function App() {
       window.removeEventListener('focus', sync)
       window.removeEventListener('blur', sync)
     }
-  }, [selected?.id, isGroup, workspace?.id])
+  }, [selected?.id, isGroup, isBoard, workspace?.id])
+
+  // Load tasks once per workspace.
+  useEffect(() => {
+    if (!workspace || tasks[workspace.id]) return
+    api.listTasks(workspace.id).then((list) =>
+      setTasks((prev) => {
+        const seen = new Set(list.map((t) => t.id))
+        return { ...prev, [workspace.id]: [...list, ...(prev[workspace.id] ?? []).filter((t) => !seen.has(t.id))] }
+      })
+    )
+  }, [workspace?.id])
 
   // Load group history once per workspace.
   useEffect(() => {
@@ -270,8 +296,9 @@ export default function App() {
         onEditWorkspace={() => setModal({ mode: 'ws-edit' })}
         onOpenKb={() => setModal({ mode: 'kb' })}
         agents={sorted}
-        selectedId={isGroup ? 'group' : (selected?.id ?? null)}
+        selectedId={isGroup ? 'group' : isBoard ? 'board' : (selected?.id ?? null)}
         groupUnread={workspace?.groupUnread ?? 0}
+        boardUnread={workspace?.boardUnread ?? 0}
         running={running}
         search={search}
         onSearch={setSearch}
@@ -284,6 +311,8 @@ export default function App() {
       <main className="chat-pane">
         {openPlan ? (
           <PlanView planId={openPlan} onBack={() => setOpenPlan(null)} />
+        ) : isBoard && workspace ? (
+          <Board workspace={workspace} agents={sorted} tasks={tasks[workspace.id] ?? []} running={running} />
         ) : isGroup && workspace ? (
           <GroupChat agents={sorted} msgs={groups[workspace.id]} running={running} onSend={(t) => void api.sendGroup(workspace.id, t)} />
         ) : selected ? (
