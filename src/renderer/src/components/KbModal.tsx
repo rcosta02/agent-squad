@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
+import MDEditor from '@uiw/react-md-editor'
+import '@uiw/react-md-editor/markdown-editor.css'
 import type { Workspace } from '../../../shared/types'
 
 type Props = { workspace: Workspace; onClose: () => void }
@@ -123,7 +125,9 @@ export default function KbModal({ workspace, onClose }: Props) {
               Close
             </button>
           </div>
-          <textarea className="kb-editor" value={text} onChange={(e) => setText(e.target.value)} spellCheck={false} />
+          <div className="kb-md" data-color-mode="dark">
+            <MDEditor value={text} onChange={(v) => setText(v ?? '')} height="100%" preview="live" visibleDragbar={false} textareaProps={{ spellCheck: false }} />
+          </div>
         </div>
       </div>
     </div>
