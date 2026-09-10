@@ -277,3 +277,40 @@ export function readSummary(id: string): string {
   const f = path.join(home(), 'meetings', id, 'summary.md')
   return fs.existsSync(f) ? fs.readFileSync(f, 'utf8') : ''
 }
+
+/** Deterministic: put the summary page into the workspace KB, index it under "## Meetings", commit. Generates the summary first if needed. */
+export async function addToKb(id: string, kbDir: string): Promise<string> {
+  const dir = path.join(home(), 'meetings', id)
+  const meta = JSON.parse(fs.readFileSync(path.join(dir, 'meeting.json'), 'utf8')) as Meeting
+  const summary = readSummary(id) || (await summarizeInline(id))
+  const slug = meta.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 40) || 'meeting'
+  const rel = `meetings/${meta.id.slice(0, 10)}-${slug}-summary.md`
+  const transcriptRel = meta.kbPath ? path.relative(kbDir, meta.kbPath) : undefined
+  const page = [`# ${meta.title}`, ``, `Date: ${new Date(meta.startedAt).toLocaleString()}${transcriptRel ? ` · Transcript: [${path.basename(transcriptRel)}](${transcriptRel})` : ''}`, ``, summary, ``].join('\n')
+  fs.mkdirSync(path.join(kbDir, 'meetings'), { recursive: true })
+  fs.writeFileSync(path.join(kbDir, rel), page)
+  // README index: one line under "## Meetings"
+  const readmePath = path.join(kbDir, 'README.md')
+  let readme = fs.existsSync(readmePath) ? fs.readFileSync(readmePath, 'utf8') : '# Knowledge base\n'
+  const line = `- ${rel} — ${meta.title} (${new Date(meta.startedAt).toISOString().slice(0, 10)})`
+  if (!readme.includes(rel)) {
+    if (/^## Meetings\s*$/m.test(readme)) readme = readme.replace(/^## Meetings\s*\n/m, (h) => h + line + '\n')
+    else readme = readme.trimEnd() + `\n\n## Meetings\n${line}\n`
+    fs.writeFileSync(readmePath, readme)
+  }
+  try {
+    execSync(`git add -A && git commit -qm "kb: meeting summary ${meta.title}" --no-verify`, { cwd: kbDir, stdio: 'ignore' })
+  } catch {}
+  meta.kbSummaryPath = path.join(kbDir, rel)
+  fs.writeFileSync(path.join(dir, 'meeting.json'), JSON.stringify(meta, null, 2))
+  return rel
+}
+
+export function renameMeeting(id: string, title: string) {
+  const dir = path.join(home(), 'meetings', id)
+  const meta = JSON.parse(fs.readFileSync(path.join(dir, 'meeting.json'), 'utf8')) as Meeting
+  meta.title = title.trim() || meta.title
+  fs.writeFileSync(path.join(dir, 'meeting.json'), JSON.stringify(meta, null, 2))
+  for (const f of [meta.transcriptPath, meta.kbPath]) if (f && fs.existsSync(f)) fs.writeFileSync(f, fs.readFileSync(f, 'utf8').replace(/^# .*$/m, `# ${meta.title}`))
+  return meta
+}

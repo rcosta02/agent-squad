@@ -821,3 +821,7 @@ section.plan-card ul { margin: 0 0 8px; padding-left: 20px; }
 .tab { border: 0; background: none; color: var(--muted); font: inherit; font-size: 13px; padding: 6px 10px; border-radius: 8px 8px 0 0; cursor: pointer; border-bottom: 2px solid transparent; }
 .tab.on { color: var(--text); border-bottom-color: var(--blue); }
 .tab:disabled { opacity: 0.4; cursor: default; }
+
+.meeting-title-btn { border: 0; background: none; color: var(--text); font: inherit; font-weight: 600; cursor: text; padding: 4px 6px; border-radius: 6px; }
+.meeting-title-btn:hover { background: var(--border); }
+.meeting-rename { font: inherit; font-weight: 600; background: var(--bg); color: var(--text); border: 1px solid var(--blue); border-radius: 6px; padding: 4px 6px; outline: 0; min-width: 260px; }

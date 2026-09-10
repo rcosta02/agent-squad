@@ -6,7 +6,7 @@ import type { Event } from '../shared/types'
 import { Sessions } from './sessions'
 import { kbDelete, kbList, kbRead, kbWrite } from './kb'
 import * as mcp from './mcp'
-import { Recorder, deleteMeeting, kbPrompt, listMeetings, readMeeting, readSummary, summarizeInline } from './meetings'
+import { Recorder, addToKb, deleteMeeting, listMeetings, readMeeting, readSummary, renameMeeting, summarizeInline } from './meetings'
 
 // GUI apps on macOS get a bare PATH; pull the user's shell PATH so `claude`, node, MCP servers resolve.
 try {
@@ -104,11 +104,13 @@ ipcMain.handle('meeting:read', (_, id) => readMeeting(id))
 ipcMain.handle('meeting:delete', (_, id) => deleteMeeting(id))
 ipcMain.handle('meeting:summarize', (_, id) => summarizeInline(id))
 ipcMain.handle('meeting:summary', (_, id) => readSummary(id))
-ipcMain.handle('meeting:kb', (_, id, agentId) => {
-  const m = listMeetings(sessions.workspaceOfAgent(agentId)).find((x) => x.id === id)
-  if (!m) throw new Error('No such meeting')
-  return sessions.send(agentId, kbPrompt(m))
+ipcMain.handle('meeting:kb', (_, id) => {
+  const wsId = (JSON.parse(fs.readFileSync(path.join(process.env.CLAUDE_DESK_HOME || path.join(app.getPath('home'), '.claude-desk'), 'meetings', id, 'meeting.json'), 'utf8')) as { workspaceId: string }).workspaceId
+  const kb = sessions.kbDirOf(wsId)
+  if (!kb) throw new Error('Workspace has no knowledge base')
+  return addToKb(id, kb)
 })
+ipcMain.handle('meeting:rename', (_, id, title) => renameMeeting(id, title))
 ipcMain.handle('shell:open', (_, url) => shell.openExternal(String(url)))
 ipcMain.handle('clipboard:write', (_, text) => clipboard.writeText(String(text)))
 ipcMain.handle('dialog:folder', async () => {

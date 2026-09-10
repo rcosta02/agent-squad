@@ -22,8 +22,9 @@ export default function MeetingView({ workspace, agents, meeting, onBack, onOpen
   const [list, setList] = useState<Meeting[]>([])
   const [openId, setOpenId] = useState<string | null>(null)
   const [text, setText] = useState('')
-  const [sumAgent, setSumAgent] = useState(agents.find((a) => /secretary|notes|meeting/i.test(a.name))?.id ?? agents[0]?.id ?? '')
-  const [sent, setSent] = useState(false)
+  const [kbBusy, setKbBusy] = useState(false)
+  const [kbDone, setKbDone] = useState('')
+  const [renaming, setRenaming] = useState<string | null>(null)
   const [tab, setTab] = useState<'transcript' | 'summary'>('transcript')
   const [summary, setSummary] = useState('')
   const [busy, setBusy] = useState(false)
@@ -48,7 +49,8 @@ export default function MeetingView({ workspace, agents, meeting, onBack, onOpen
   }, [live?.segments.length])
   useEffect(() => {
     if (!openId) return
-    setSent(false)
+    setKbDone('')
+    setRenaming(null)
     setConfirm(false)
     setSumErr('')
     api.meetingRead(openId).then(setText)
@@ -117,9 +119,10 @@ export default function MeetingView({ workspace, agents, meeting, onBack, onOpen
         <div className="meetings-layout">
           <aside className="meetings-side">
             <div className="meeting-new">
-              <input type="text" value={title} placeholder="Meeting title" onChange={(e) => setTitle(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && start()} />
-              <button className="btn primary rec-start" onClick={start} disabled={!!meeting && meeting.status !== 'done'}>
-                ● Record
+              <div className="drawer-label">New meeting</div>
+              <input type="text" value={title} autoFocus placeholder="Title, e.g. Weekly sync with David" onChange={(e) => setTitle(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && title.trim() && start()} />
+              <button className="btn primary rec-start" onClick={start} disabled={!title.trim() || (!!meeting && meeting.status !== 'done')} title={title.trim() ? '' : 'Give the meeting a title first'}>
+                ● Record{title.trim() ? ` “${title.trim().slice(0, 24)}${title.trim().length > 24 ? '…' : ''}”` : ''}
               </button>
               {error && <div className="error-text">{error}</div>}
             </div>
@@ -144,15 +147,29 @@ export default function MeetingView({ workspace, agents, meeting, onBack, onOpen
             ) : (
               <>
                 <div className="meeting-toolbar">
-                  <span className="hint mono meeting-path">{opened.kbPath?.split('/').slice(-2).join('/') ?? opened.id}</span>
+                  {renaming !== null ? (
+                    <input
+                      className="meeting-rename"
+                      autoFocus
+                      value={renaming}
+                      onChange={(e) => setRenaming(e.target.value)}
+                      onKeyDown={async (e) => {
+                        if (e.key === 'Enter' && renaming.trim()) {
+                          await api.meetingRename(opened.id, renaming.trim())
+                          setRenaming(null)
+                          void refresh()
+                          api.meetingRead(opened.id).then(setText)
+                        }
+                        if (e.key === 'Escape') setRenaming(null)
+                      }}
+                      onBlur={() => setRenaming(null)}
+                    />
+                  ) : (
+                    <button className="meeting-title-btn" title="Rename" onClick={() => setRenaming(opened.title)}>
+                      {opened.title} ✎
+                    </button>
+                  )}
                   <span style={{ flex: 1 }} />
-                  <select className="rev-pick" value={sumAgent} onChange={(e) => setSumAgent(e.target.value)}>
-                    {agents.map((a) => (
-                      <option key={a.id} value={a.id}>
-                        {a.emoji} {a.name}
-                      </option>
-                    ))}
-                  </select>
                   <button
                     className="btn small"
                     disabled={busy}
@@ -173,25 +190,30 @@ export default function MeetingView({ workspace, agents, meeting, onBack, onOpen
                   </button>
                   <button
                     className="btn small primary"
-                    disabled={!sumAgent || sent}
-                    title="Ask the selected agent to fold this meeting into the knowledge base."
+                    disabled={kbBusy || !!kbDone}
+                    title="Write the summary page into the workspace knowledge base and index it. Deterministic, no agent."
                     onClick={async () => {
-                      await api.meetingToKb(opened.id, sumAgent)
-                      setSent(true)
+                      setKbBusy(true)
+                      setSumErr('')
+                      try {
+                        const rel = await api.meetingToKb(opened.id)
+                        setKbDone(rel)
+                        if (!summary) setSummary(await api.meetingSummary(opened.id))
+                        void refresh()
+                      } catch (e) {
+                        setSumErr(String((e as Error).message).replace(/^.*Error: /, ''))
+                      }
+                      setKbBusy(false)
                     }}
                   >
-                    {sent ? 'Sent to agent ✓' : 'Add to knowledge base'}
+                    {kbBusy ? 'Adding…' : kbDone || opened.kbSummaryPath ? 'In knowledge base ✓' : 'Add to knowledge base'}
                   </button>
-                  {sent && (
-                    <button className="note-btn" onClick={() => onOpenAgent(sumAgent)}>
-                      Open chat →
-                    </button>
-                  )}
                   <button className="btn small danger" onClick={() => (confirm ? (api.meetingDelete(opened.id).then(refresh), setOpenId(null)) : setConfirm(true))}>
                     {confirm ? 'Really delete?' : 'Delete'}
                   </button>
                 </div>
                 {sumErr && <div className="error-text" style={{ padding: '8px 16px' }}>{sumErr}</div>}
+                {(kbDone || opened.kbSummaryPath) && <div className="ok-text" style={{ padding: '6px 16px' }}>Saved to knowledge base: {kbDone || opened.kbSummaryPath?.split('/').slice(-2).join('/')}</div>}
                 <div className="tabs">
                   <button className={'tab' + (tab === 'transcript' ? ' on' : '')} onClick={() => setTab('transcript')}>
                     Transcript

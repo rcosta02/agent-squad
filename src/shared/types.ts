@@ -69,6 +69,7 @@ export type Meeting = {
   dir: string // raw audio + meeting.json
   kbPath?: string // transcript copy inside the workspace KB (meetings/<id>-<slug>.md)
   summaryPath?: string // inline summary, if generated
+  kbSummaryPath?: string // summary page inside the knowledge base, once added
   startedAt: number
   endedAt?: number
   status: 'recording' | 'stopping' | 'done'
@@ -195,7 +196,8 @@ export type Api = {
   meetingRead(id: string): Promise<string> // transcript markdown
   meetingSummarize(id: string): Promise<string> // direct Claude call, returns markdown; no agent involved
   meetingSummary(id: string): Promise<string> // existing summary markdown or ''
-  meetingToKb(id: string, agentId: string): Promise<void> // explicit: agent folds the meeting into the knowledge base
+  meetingToKb(id: string): Promise<string> // deterministic: writes the summary page into the knowledge base, returns its relative path
+  meetingRename(id: string, title: string): Promise<Meeting>
   meetingDelete(id: string): Promise<void>
   pickFolder(): Promise<string | null>
   pickImage(): Promise<string | null> // data URL of the chosen image file
