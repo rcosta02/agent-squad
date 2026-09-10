@@ -11,7 +11,7 @@ const whisperBin = () => process.env.CLAUDE_DESK_WHISPER || '/opt/homebrew/bin/w
 const helperBin = () => process.env.CLAUDE_DESK_AUDIOTAP || path.join(app.getAppPath(), 'resources', 'audiotap')
 
 type Emit = (m: Meeting) => void
-type Chunk = { chunk: number; mic: string | null; sys: string | null; seconds: number; final: boolean }
+type Chunk = { track: 'mic' | 'sys'; path: string; start: number; dur: number; final: boolean }
 
 /** One recording at a time. Chunks are transcribed as they land; segments merge by absolute time. */
 export class Recorder {
@@ -36,7 +36,7 @@ export class Recorder {
     fs.mkdirSync(dir, { recursive: true })
     this.meeting = { id, agentId, title: title || 'Meeting', dir, startedAt: Date.now(), status: 'recording', segments: [], pendingChunks: 0 }
     this.save()
-    const child = spawn(helperBin(), [dir, '30'], { stdio: ['ignore', 'pipe', 'pipe'] })
+    const child = spawn(helperBin(), [dir, '12'], { stdio: ['ignore', 'pipe', 'pipe'] })
     this.child = child
     let buf = ''
     child.stdout!.on('data', (d) => {
@@ -48,7 +48,7 @@ export class Recorder {
         if (!line) continue
         try {
           const j = JSON.parse(line)
-          if ('chunk' in j) this.onChunk(j as Chunk)
+          if ('track' in j) this.onChunk(j as Chunk)
         } catch {}
       }
     })
@@ -77,24 +77,22 @@ export class Recorder {
     m.pendingChunks++
     this.save()
     this.queue = this.queue.then(async () => {
-      const base = c.chunk * c.seconds
-      const segs: MeetingSegment[] = []
-      if (c.sys && wavRms(c.sys) === 0) {
-        m.silentSys = (m.silentSys ?? 0) + 1
-        if (m.silentSys >= 2 && !m.error) m.error = 'System audio is silent. Grant "System Audio Recording" to the app that launched Claude Desk (System Settings → Privacy & Security → Screen & System Audio Recording), then restart the app.'
-      } else if (c.sys) m.silentSys = 0
-      for (const [who, file] of [['Me', c.mic], ['Them', c.sys]] as const) {
-        if (!file) continue
-        try {
-          for (const s of await transcribe(file)) segs.push({ t: base + s.t, who, text: s.text })
-        } catch (e) {
-          m.error = `whisper: ${(e as Error).message}`
-        }
+      const who = c.track === 'mic' ? 'Me' : 'Them'
+      if (c.track === 'sys') {
+        if (wavRms(c.path) === 0) {
+          m.silentSys = (m.silentSys ?? 0) + 1
+          if (m.silentSys >= 3 && !m.error) m.error = 'System audio is silent. Grant "System Audio Recording" to the app that launched Claude Desk (System Settings → Privacy & Security → Screen & System Audio Recording), then restart the app.'
+        } else m.silentSys = 0
       }
-      if (segs.length) {
-        m.segments.push(...segs)
-        m.segments.sort((a, b) => a.t - b.t)
-        m.segments = dedupeCrosstalk(m.segments)
+      try {
+        const segs: MeetingSegment[] = (await transcribe(c.path)).map((s) => ({ t: c.start + s.t, who, text: s.text }))
+        if (segs.length) {
+          m.segments.push(...segs)
+          m.segments.sort((a, b) => a.t - b.t)
+          m.segments = dedupeCrosstalk(m.segments)
+        }
+      } catch (e) {
+        m.error = `whisper: ${(e as Error).message}`
       }
       m.pendingChunks--
       this.save()
@@ -167,7 +165,7 @@ const SILENCE_RMS = 40
 function transcribe(file: string): Promise<{ t: number; text: string }[]> {
   return new Promise((resolve, reject) => {
     const st = fs.statSync(file)
-    if (st.size < 16000) return resolve([]) // < 0.5s of audio
+    if (st.size < 19200) return resolve([]) // < 0.6s of audio: whisper hallucinates on stubs
     if (wavRms(file) < SILENCE_RMS) return resolve([])
     const out = file.replace(/\.wav$/, '')
     execFile(whisperBin(), ['-m', modelPath(), '-f', file, '-l', 'auto', '-np', '-oj', '-of', out, '-t', '6'], { timeout: 240_000 }, (err) => {

@@ -9,7 +9,11 @@ import Foundation
 let args = CommandLine.arguments
 guard args.count >= 2 else { FileHandle.standardError.write("usage: audiotap <outdir> [chunkSeconds]\n".data(using: .utf8)!); exit(2) }
 let outDir = args[1]
-let chunkSeconds = args.count >= 3 ? Double(args[2]) ?? 30 : 30
+let maxChunk = args.count >= 3 ? Double(args[2]) ?? 12 : 12   // hard cap per chunk (s)
+let minSpeech = 1.5     // don't cut before this much audio (s)
+let pauseSec = 0.6      // trailing silence that ends a chunk (s)
+let silenceRms = 120.0  // 16-bit RMS below this = silence
+let chunkSeconds = maxChunk
 try? FileManager.default.createDirectory(atPath: outDir, withIntermediateDirectories: true)
 
 let targetFormat = AVAudioFormat(commonFormat: .pcmFormatInt16, sampleRate: 16000, channels: 1, interleaved: true)!
@@ -24,6 +28,11 @@ func emit(_ obj: [String: Any]) {
 final class Track {
   let name: String
   var samples = [Int16]()
+  var startSample = 0       // absolute sample index where the current buffer starts
+  var total = 0             // absolute samples seen
+  var silentRun = 0         // trailing silent samples
+  var hadSpeech = false
+  var index = 0
   var converter: AVAudioConverter?
   var srcFormat: AVAudioFormat?
   init(_ name: String) { self.name = name }
@@ -45,7 +54,33 @@ final class Track {
     }
     if let err = err { log("convert \(name): \(err)"); return }
     let n = Int(out.frameLength)
-    if n > 0, let p = out.int16ChannelData?[0] { samples.append(contentsOf: UnsafeBufferPointer(start: p, count: n)) }
+    guard n > 0, let p = out.int16ChannelData?[0] else { return }
+    let chunk = UnsafeBufferPointer(start: p, count: n)
+    samples.append(contentsOf: chunk)
+    total += n
+    var acc = 0.0
+    for v in chunk { acc += Double(v) * Double(v) }
+    let rms = (acc / Double(n)).squareRoot()
+    if rms < silenceRms { silentRun += n } else { silentRun = 0; hadSpeech = true }
+    // Before any speech, keep only a short pre-roll so chunks do not start with seconds of silence.
+    if !hadSpeech && samples.count > 8000 { let keep = 4800; samples.removeFirst(samples.count - keep); startSample = total - keep }
+    let dur = Double(samples.count) / 16000
+    let trailing = Double(silentRun) / 16000
+    // Cut at a pause once we have something worth transcribing, or at the hard cap.
+    if (hadSpeech && dur >= minSpeech && trailing >= pauseSec) || dur >= maxChunk { cut(final: false) }
+  }
+
+  func cut(final: Bool) {
+    guard hadSpeech || final else { samples.removeAll(keepingCapacity: true); startSample = total; return }
+    let start = Double(startSample) / 16000
+    let dur = Double(samples.count) / 16000
+    if let path = flush(index: index) {
+      emit(["track": name, "path": path, "start": start, "dur": dur, "final": final])
+      index += 1
+    }
+    startSample = total
+    silentRun = 0
+    hadSpeech = false
   }
 
   /// Writes the accumulated samples as a WAV file and clears the buffer.
@@ -133,32 +168,18 @@ if ProcessInfo.processInfo.environment["AUDIOTAP_NO_SYS"] == nil {
   DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { log("sys: starting"); startSystemTap(); log("sys: setup returned") }
 }
 
-// ---------- chunking + shutdown ----------
-var index = 0
-func flushAll(final: Bool) {
-  queue.sync {
-    let m = mic.flush(index: index)
-    let s = sys.flush(index: index)
-    emit(["chunk": index, "mic": m ?? NSNull(), "sys": s ?? NSNull(), "seconds": chunkSeconds, "final": final])
-    index += 1
-  }
-}
-let timer = DispatchSource.makeTimerSource(queue: DispatchQueue.global())
-timer.schedule(deadline: .now() + chunkSeconds, repeating: chunkSeconds)
-timer.setEventHandler { flushAll(final: false) }
-timer.resume()
-
+// ---------- shutdown ----------
 func shutdown() {
-  timer.cancel()
   engine.stop()
   if let p = procID { AudioDeviceStop(aggID, p); AudioDeviceDestroyIOProcID(aggID, p) }
   if aggID != kAudioObjectUnknown { AudioHardwareDestroyAggregateDevice(aggID) }
   if tapID != kAudioObjectUnknown { AudioHardwareDestroyProcessTap(tapID) }
-  flushAll(final: true)
+  queue.sync { mic.cut(final: true); sys.cut(final: true) }
+  emit(["done": true])
   exit(0)
 }
 signal(SIGINT, SIG_IGN); signal(SIGTERM, SIG_IGN)
 let sigint = DispatchSource.makeSignalSource(signal: SIGINT, queue: .main); sigint.setEventHandler { shutdown() }; sigint.resume()
 let sigterm = DispatchSource.makeSignalSource(signal: SIGTERM, queue: .main); sigterm.setEventHandler { shutdown() }; sigterm.resume()
-emit(["started": true, "chunkSeconds": chunkSeconds])
+emit(["started": true, "maxChunk": maxChunk, "pause": pauseSec])
 RunLoop.main.run()

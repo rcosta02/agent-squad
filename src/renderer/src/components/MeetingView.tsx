@@ -102,7 +102,7 @@ export default function MeetingView({ agents, meeting, onBack, onOpenAgent }: Pr
       ) : (
         <>
           <div className="transcript" ref={listRef}>
-            {meeting.segments.length === 0 && <div className="hint">Listening… first text appears after ~30 s (chunks transcribe as they complete).</div>}
+            {meeting.segments.length === 0 && <div className="hint">Listening… text appears a few seconds after each pause.</div>}
             {meeting.segments.map((s, i) => (
               <div key={i} className={'seg ' + s.who}>
                 <span className="seg-t">{fmt(s.t)}</span>
