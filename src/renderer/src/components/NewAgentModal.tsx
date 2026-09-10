@@ -27,7 +27,7 @@ type Props = {
 export default function NewAgentModal({ initial, onClose, onSubmit, onDelete }: Props) {
   const [name, setName] = useState(initial?.name ?? '')
   const [emoji, setEmoji] = useState(initial?.emoji ?? randomEmoji())
-  const [pick, setPick] = useState(false)
+  const [emojiOpen, setEmojiOpen] = useState(false)
   const [color, setColor] = useState(initial?.color ?? COLORS[Math.floor(Math.random() * COLORS.length)])
   const [cwd, setCwd] = useState(initial?.cwd ?? '')
   const [autonomous, setAutonomous] = useState(initial?.autonomous ?? false)
@@ -69,10 +69,10 @@ export default function NewAgentModal({ initial, onClose, onSubmit, onDelete }: 
           <div className="field narrow">
             <label>Emoji</label>
             <div className="emoji-field">
-              <button type="button" className="emoji-btn" style={{ background: color }} onClick={() => setPick((v) => !v)} title="Choose emoji">
+              <button type="button" className="emoji-btn" style={{ background: color }} onClick={() => setEmojiOpen((v) => !v)} title="Choose emoji">
                 {emoji || '?'}
               </button>
-              {pick && <EmojiPicker value={emoji} onPick={setEmoji} onClose={() => setPick(false)} />}
+              {emojiOpen && <EmojiPicker value={emoji} onPick={setEmoji} onClose={() => setEmojiOpen(false)} />}
             </div>
           </div>
         </div>
