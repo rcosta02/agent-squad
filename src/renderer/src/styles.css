@@ -865,7 +865,7 @@ section.plan-card ul { margin: 0 0 8px; padding-left: 20px; }
 .kb-md { flex: 1; min-height: 0; display: flex; }
 .md-host { flex: 1; min-height: 0; }
 .kb-md .toastui-editor-defaultUI { border: 0; border-radius: 0; height: 100% !important; display: flex; flex-direction: column; }
-.kb-md .toastui-editor-defaultUI-toolbar { background: #232325; border-bottom: 1px solid var(--border); padding: 0 8px; }
+.kb-md .toastui-editor-defaultUI-toolbar { background: #232325; border-bottom: 1px solid var(--border); padding: 0 6px; zoom: 0.78; }
 .kb-md .toastui-editor-toolbar-icons { border-color: transparent; }
 .kb-md .toastui-editor-main { flex: 1; min-height: 0; }
 .kb-md .toastui-editor-ww-container { background: var(--bg); }
@@ -876,8 +876,14 @@ section.plan-card ul { margin: 0 0 8px; padding-left: 20px; }
 .kb-md .toastui-editor-contents a { color: var(--blue); }
 .kb-md .toastui-editor-contents table th, .kb-md .toastui-editor-contents table td { border-color: #3a3a3c; }
 .kb-md .toastui-editor-contents table th { background: #2c2c2e; }
-.kb-dir-row { display: flex; align-items: center; gap: 6px; width: 100%; text-align: left; border: 0; background: none; color: var(--text); font: inherit; font-size: 13px; font-weight: 600; padding: 5px 8px; border-radius: 6px; cursor: pointer; }
+.kb-dir-row { display: flex; align-items: center; gap: 6px; width: 100%; text-align: left; border: 0; background: none; color: var(--text); font: inherit; font-size: 13px; font-weight: 500; padding: 5px 8px; border-radius: 6px; cursor: pointer; }
 .kb-dir-row:hover { background: var(--border); }
 .kb-file { display: flex; align-items: center; gap: 6px; }
-.kb-ico { width: 12px; color: var(--muted); font-size: 11px; flex: none; }
+.kb-ico { flex: none; color: #8e8e93; }
+.kb-ico.folder { color: #5ac8fa; }
+.kb-chev { width: 10px; flex: none; color: var(--muted); font-size: 10px; display: inline-block; transition: transform 0.12s; }
+.kb-chev.open { transform: rotate(90deg); }
+.kb-files > * { flex: none; }
+.kb-file { flex: none; padding: 5px 8px; }
+.kb-file.current { background: rgba(10,132,255,0.18); color: #fff; }
 .kb-count { margin-left: auto; font-size: 11px; color: var(--muted); }

@@ -113,7 +113,10 @@ export default function KbModal({ workspace, onClose }: Props) {
                 <>
                   {n.files.map((f) => (
                     <button key={f} className={'kb-file' + (f === current ? ' current' : '')} style={{ paddingLeft: 8 + depth * 14 }} onClick={() => open(f)} title={f}>
-                      <span className="kb-ico">▫</span>
+                      <svg className="kb-ico" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinejoin="round">
+                        <path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z" />
+                        <path d="M14 3v5h5M9 13h6M9 17h6" />
+                      </svg>
                       {f.split('/').pop()}
                     </button>
                   ))}
@@ -133,7 +136,10 @@ export default function KbModal({ workspace, onClose }: Props) {
                             })
                           }
                         >
-                          <span className="kb-ico">{closed.has(d.path) ? '▸' : '▾'}</span>
+                          <span className={'kb-chev' + (closed.has(d.path) ? '' : ' open')}>▸</span>
+                          <svg className="kb-ico folder" width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M3 6.5A1.5 1.5 0 0 1 4.5 5h4.3a1.5 1.5 0 0 1 1.06.44L11.4 6.5h8.1A1.5 1.5 0 0 1 21 8v9.5a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 17.5z" />
+                          </svg>
                           {d.name}
                           <span className="kb-count">{d.files.length}</span>
                         </button>
