@@ -778,8 +778,9 @@ section.plan-card ul { margin: 0 0 8px; padding-left: 20px; }
 .rail-footer { display: flex; flex-direction: column; align-items: center; gap: 10px; }
 .rail-mic { background: none; color: var(--muted); border: 1px dashed #3a3a3c; }
 .rail-mic:hover { color: var(--text); background: #2c2c2e; }
-.rail-mic.live { color: #ff375f; border-color: #ff375f; border-style: solid; animation: pulse 1.2s ease-in-out infinite; }
-.rail-badge.live { background: #ff375f; font-size: 8px; min-width: 12px; height: 12px; padding: 0; top: -3px; right: -3px; }
+.rail-mic.live { color: #ff375f; border-color: #ff375f; border-style: solid; }
+.rail-badge.live { background: #ff375f; font-size: 0; min-width: 10px; width: 10px; height: 10px; padding: 0; top: -3px; right: -3px; animation: fade 1.4s ease-in-out infinite; }
+@keyframes fade { 0%, 100% { opacity: 1; } 50% { opacity: 0.15; } }
 .rec-badge { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); margin-left: 12px; }
 .rec-badge.recording { color: #ff375f; }
 .rec-dot { width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
