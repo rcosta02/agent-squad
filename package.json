@@ -7,8 +7,9 @@
   "scripts": {
     "dev": "electron-vite dev",
     "build": "electron-vite build",
-    "start": "electron-vite preview",
-    "helper": "xcrun swiftc -O -swift-version 5 helper/audiotap.swift -o resources/audiotap -framework AVFoundation -framework CoreAudio"
+    "start": "electron-vite build && open -n ./node_modules/electron/dist/Electron.app --args \"$PWD\"",
+    "helper": "xcrun swiftc -O -swift-version 5 helper/audiotap.swift -o resources/audiotap -framework AVFoundation -framework CoreAudio",
+    "start:term": "electron-vite preview"
   },
   "dependencies": {
     "@anthropic-ai/claude-agent-sdk": "^0.3.263",

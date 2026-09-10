@@ -74,6 +74,7 @@ export type Meeting = {
   pendingChunks: number
   transcriptPath?: string
   error?: string
+  silentSys?: number // consecutive all-zero system chunks (permission missing)
 }
 
 export type GroupMsg = { id: string; author: 'me' | string; text: string; ts: number } // author = 'me' or agent id

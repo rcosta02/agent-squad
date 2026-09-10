@@ -79,6 +79,10 @@ export class Recorder {
     this.queue = this.queue.then(async () => {
       const base = c.chunk * c.seconds
       const segs: MeetingSegment[] = []
+      if (c.sys && wavRms(c.sys) === 0) {
+        m.silentSys = (m.silentSys ?? 0) + 1
+        if (m.silentSys >= 2 && !m.error) m.error = 'System audio is silent. Grant "System Audio Recording" to the app that launched Claude Desk (System Settings → Privacy & Security → Screen & System Audio Recording), then restart the app.'
+      } else if (c.sys) m.silentSys = 0
       for (const [who, file] of [['Me', c.mic], ['Them', c.sys]] as const) {
         if (!file) continue
         try {
@@ -148,11 +152,23 @@ function dedupeCrosstalk(segs: MeetingSegment[]): MeetingSegment[] {
   })
 }
 
+/** RMS of a 16-bit mono WAV; whisper hallucinates ("Thank you.") on silence, so silent chunks are skipped. */
+export function wavRms(file: string): number {
+  const b = fs.readFileSync(file)
+  const n = Math.floor((b.length - 44) / 2)
+  if (n <= 0) return 0
+  let acc = 0
+  for (let i = 0; i < n; i += 4) acc += b.readInt16LE(44 + i * 2) ** 2 // every 4th sample is plenty
+  return Math.sqrt(acc / Math.ceil(n / 4))
+}
+const SILENCE_RMS = 40
+
 /** whisper-cli → segments with seconds offsets. Skips near-silent files fast. */
 function transcribe(file: string): Promise<{ t: number; text: string }[]> {
   return new Promise((resolve, reject) => {
     const st = fs.statSync(file)
     if (st.size < 16000) return resolve([]) // < 0.5s of audio
+    if (wavRms(file) < SILENCE_RMS) return resolve([])
     const out = file.replace(/\.wav$/, '')
     execFile(whisperBin(), ['-m', modelPath(), '-f', file, '-l', 'auto', '-np', '-oj', '-of', out, '-t', '6'], { timeout: 240_000 }, (err) => {
       if (err) return reject(err)
