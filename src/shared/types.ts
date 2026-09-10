@@ -38,7 +38,7 @@ export type Plan = {
   progress?: { done: number; total: number } // checklist steps
 }
 
-export type TaskStatus = 'backlog' | 'todo' | 'in_progress' | 'review' | 'done'
+export type TaskStatus = 'backlog' | 'todo' | 'in_progress' | 'blocked' | 'review' | 'done'
 export type TaskPriority = 'low' | 'normal' | 'high' | 'urgent'
 export type TaskComment = { author: 'me' | string; text: string; ts: number } // author = 'me' or agent id
 export type Task = {

@@ -698,12 +698,12 @@ section.plan-card ul { margin: 0 0 8px; padding-left: 20px; }
 .board-header .name { flex: none; }
 .board-search { -webkit-app-region: no-drag; margin-left: 12px; flex: 1; max-width: 320px; padding: 5px 10px; border-radius: 8px; border: 1px solid var(--border); background: var(--sidebar); color: var(--text); font: inherit; font-size: 12.5px; outline: 0; }
 .board-search:focus { border-color: var(--blue); }
-.board-cols { flex: 1; min-height: 0; display: grid; grid-template-columns: repeat(5, minmax(200px, 1fr)); gap: 12px; padding: 14px 16px; overflow-x: auto; }
+.board-cols { flex: 1; min-height: 0; display: grid; grid-template-columns: repeat(6, minmax(180px, 1fr)); gap: 12px; padding: 14px 16px; overflow-x: auto; }
 .board-col { display: flex; flex-direction: column; min-width: 0; border-radius: 14px; background: #1f1f21; border: 1px solid transparent; transition: border-color 0.12s, background 0.12s; }
 .board-col.over { border-color: rgba(10,132,255,0.5); background: #212126; }
 .col-head { display: flex; align-items: center; gap: 8px; padding: 10px 12px 8px; font-size: 13px; }
 .col-dot { width: 8px; height: 8px; border-radius: 50%; }
-.col-dot.backlog { background: #8e8e93; } .col-dot.todo { background: #5ac8fa; } .col-dot.in_progress { background: #ffd60a; } .col-dot.review { background: #bf5af2; } .col-dot.done { background: #34c759; }
+.col-dot.backlog { background: #8e8e93; } .col-dot.todo { background: #5ac8fa; } .col-dot.in_progress { background: #ffd60a; } .col-dot.blocked { background: #ff375f; } .col-dot.review { background: #bf5af2; } .col-dot.done { background: #34c759; }
 .col-title { font-weight: 700; }
 .col-count { color: var(--muted); font-size: 12px; background: #2c2c2e; border-radius: 8px; padding: 0 6px; }
 .col-add { margin-left: auto; width: 22px; height: 22px; opacity: 0; }
@@ -859,3 +859,4 @@ section.plan-card ul { margin: 0 0 8px; padding-left: 20px; }
 .emoji-cell.on { background: var(--blue); }
 .swatch.custom { position: relative; display: flex; align-items: center; justify-content: center; color: rgba(255,255,255,0.9); font-weight: 700; font-size: 14px; cursor: pointer; overflow: hidden; }
 .swatch.custom input { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%; }
+.board-col.blocked-col { background: #24191c; }

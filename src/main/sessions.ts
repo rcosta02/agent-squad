@@ -588,7 +588,7 @@ export class Sessions {
           },
           { alwaysLoad: true }
         ),
-        tool('list_tasks', 'List the workspace kanban board. Statuses: backlog, todo, in_progress, review, done.', { status: z.enum(['backlog', 'todo', 'in_progress', 'review', 'done']).optional(), mine: z.boolean().optional() }, async ({ status, mine }) => {
+        tool('list_tasks', 'List the workspace kanban board. Statuses: backlog, todo, in_progress, blocked, review, done.', { status: z.enum(['backlog', 'todo', 'in_progress', 'blocked', 'review', 'done']).optional(), mine: z.boolean().optional() }, async ({ status, mine }) => {
           const rows = this.listTasks(agent.workspaceId)
             .filter((t) => (!status || t.status === status) && (!mine || t.assignee === id))
             .map((t) => `#${t.number} [${t.status}] (${t.priority}) ${t.title}${t.assignee ? ' → ' + (t.assignee === 'me' ? 'Rafael' : (this.agents.find((a) => a.id === t.assignee)?.name ?? '?')) : ''}`)
@@ -608,8 +608,8 @@ export class Sessions {
         ),
         tool(
           'update_task',
-          'Move or edit a board task by number. Agents may not move tasks to done; move to review with a comment instead.',
-          { number: z.number().int(), status: z.enum(['backlog', 'todo', 'in_progress', 'review']).optional(), title: z.string().optional(), description: z.string().optional(), priority: z.enum(['low', 'normal', 'high', 'urgent']).optional(), comment: z.string().optional() },
+          'Move or edit a board task by number. Use blocked (with a comment saying why) when you cannot proceed. Agents may not move tasks to done; move to review with a comment instead.',
+          { number: z.number().int(), status: z.enum(['backlog', 'todo', 'in_progress', 'blocked', 'review']).optional(), title: z.string().optional(), description: z.string().optional(), priority: z.enum(['low', 'normal', 'high', 'urgent']).optional(), comment: z.string().optional() },
           async ({ number, status, title, description, priority, comment }) => {
             const t = this.listTasks(agent.workspaceId).find((x) => x.number === number)
             if (!t) return errText(`No task #${number}`)

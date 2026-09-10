@@ -8,6 +8,7 @@ const COLS: { id: TaskStatus; label: string }[] = [
   { id: 'backlog', label: 'Backlog' },
   { id: 'todo', label: 'Todo' },
   { id: 'in_progress', label: 'In progress' },
+  { id: 'blocked', label: 'Blocked' },
   { id: 'review', label: 'Review' },
   { id: 'done', label: 'Done' }
 ]
