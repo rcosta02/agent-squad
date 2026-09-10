@@ -497,7 +497,7 @@ input, textarea { font: inherit; color: inherit; }
   -webkit-app-region: drag;
 }
 /* Traffic lights sit on this strip; the dark rail column starts below it with a rounded corner. */
-.rail-top { height: 44px; width: 100%; flex: none; }
+.rail-top { height: 40px; width: 100%; flex: none; }
 .rail-list { background: #151516; width: 100%; padding: 14px 0; border-top-right-radius: 14px; border-right: 1px solid var(--border); border-top: 1px solid var(--border); }
 .rail-footer { background: #151516; width: 100%; border-right: 1px solid var(--border); padding-bottom: 14px; }
 .rail-list { display: flex; flex-direction: column; align-items: center; gap: 12px; flex: 1; }
