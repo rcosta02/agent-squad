@@ -334,7 +334,7 @@ input, textarea { font: inherit; color: inherit; }
 .composer-inner {
   display: flex;
   align-items: flex-end;
-  gap: 8px;
+  gap: 6px;
   background: #2a2a2d;
   border: 1px solid var(--border);
   border-radius: 22px;
@@ -837,7 +837,10 @@ section.plan-card ul { margin: 0 0 8px; padding-left: 20px; }
 .rail-footer .initials { margin-top: 6px; }
 .rail-mic { display: none; }
 
-.round-btn.dictate { background: none; color: var(--muted); }
-.round-btn.dictate:hover { color: var(--text); background: #3a3a3c; }
+.round-btn.dictate { background: #3a3a3c; color: var(--text); margin-right: -2px; }
+.round-btn.dictate svg { width: 16px; height: 16px; }
+.round-btn.dictate:hover { background: #48484a; }
+.wave { height: 22px; width: 120px; align-self: center; margin: 0 2px; }
+.wave-txt { font-size: 12px; color: var(--muted); align-self: center; margin-right: 4px; }
 .round-btn.dictate.rec { color: #fff; background: #ff375f; animation: fade 1.4s ease-in-out infinite; }
 .round-btn.dictate.busy { color: var(--muted); opacity: 0.6; }

@@ -58,6 +58,38 @@ export default function Composer({ agentName, agentId, running, pending, onClear
   const [planMode, setPlanMode] = useState(false)
   const [dictating, setDictating] = useState<'idle' | 'rec' | 'busy'>('idle')
   const stopDictation = useRef<(() => void) | null>(null)
+  const waveRef = useRef<HTMLCanvasElement>(null)
+  const drawWave = (stream: MediaStream) => {
+    const ctx = new AudioContext()
+    const src = ctx.createMediaStreamSource(stream)
+    const an = ctx.createAnalyser()
+    an.fftSize = 256
+    src.connect(an)
+    const data = new Uint8Array(an.frequencyBinCount)
+    let raf = 0
+    const tick = () => {
+      const c = waveRef.current
+      if (!c) return
+      const g = c.getContext('2d')!
+      an.getByteFrequencyData(data)
+      const w = c.width, h = c.height, bars = 18, gap = 2, bw = (w - gap * (bars - 1)) / bars
+      g.clearRect(0, 0, w, h)
+      g.fillStyle = '#ff375f'
+      for (let i = 0; i < bars; i++) {
+        const v = data[Math.floor((i / bars) * data.length * 0.6)] / 255
+        const bh = Math.max(3, v * h)
+        g.beginPath()
+        g.roundRect(i * (bw + gap), (h - bh) / 2, bw, bh, 2)
+        g.fill()
+      }
+      raf = requestAnimationFrame(tick)
+    }
+    tick()
+    return () => {
+      cancelAnimationFrame(raf)
+      void ctx.close()
+    }
+  }
 
   const toggleDictation = async () => {
     if (dictating === 'rec') return stopDictation.current?.()
@@ -66,8 +98,10 @@ export default function Composer({ agentName, agentId, running, pending, onClear
       await window.api.micAccess()
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
       setDictating('rec')
+      const stopWave = drawWave(stream)
       const stop = new Promise<void>((r) => (stopDictation.current = r))
       const wav = await recordWav(stream, stop)
+      stopWave()
       stream.getTracks().forEach((t) => t.stop())
       setDictating('busy')
       const text = await window.api.dictate(wav)
@@ -214,6 +248,8 @@ export default function Composer({ agentName, agentId, running, pending, onClear
             📋 Plan
           </button>
         )}
+        {dictating === 'rec' && <canvas ref={waveRef} className="wave" width={120} height={22} />}
+        {dictating === 'busy' && <span className="wave-txt">Transcribing…</span>}
         <button className={'round-btn dictate ' + dictating} title={dictating === 'rec' ? 'Stop and transcribe' : dictating === 'busy' ? 'Transcribing…' : 'Dictate (whisper, local)'} type="button" onClick={toggleDictation} disabled={dictating === 'busy'}>
           {dictating === 'rec' ? (
             <svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor">
