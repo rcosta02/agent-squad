@@ -816,3 +816,8 @@ section.plan-card ul { margin: 0 0 8px; padding-left: 20px; }
 .meeting-toolbar .btn { white-space: nowrap; }
 .meeting-toolbar .rev-pick { max-width: 160px; }
 .meeting-path { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 260px; }
+
+.tabs { display: flex; gap: 4px; padding: 8px 16px 0; }
+.tab { border: 0; background: none; color: var(--muted); font: inherit; font-size: 13px; padding: 6px 10px; border-radius: 8px 8px 0 0; cursor: pointer; border-bottom: 2px solid transparent; }
+.tab.on { color: var(--text); border-bottom-color: var(--blue); }
+.tab:disabled { opacity: 0.4; cursor: default; }

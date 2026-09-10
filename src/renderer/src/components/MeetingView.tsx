@@ -23,7 +23,11 @@ export default function MeetingView({ workspace, agents, meeting, onBack, onOpen
   const [openId, setOpenId] = useState<string | null>(null)
   const [text, setText] = useState('')
   const [sumAgent, setSumAgent] = useState(agents.find((a) => /secretary|notes|meeting/i.test(a.name))?.id ?? agents[0]?.id ?? '')
-  const [sent, setSent] = useState<'chat' | 'kb' | null>(null)
+  const [sent, setSent] = useState(false)
+  const [tab, setTab] = useState<'transcript' | 'summary'>('transcript')
+  const [summary, setSummary] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [sumErr, setSumErr] = useState('')
   const [confirm, setConfirm] = useState(false)
   const listRef = useRef<HTMLDivElement>(null)
 
@@ -44,9 +48,14 @@ export default function MeetingView({ workspace, agents, meeting, onBack, onOpen
   }, [live?.segments.length])
   useEffect(() => {
     if (!openId) return
-    setSent(null)
+    setSent(false)
     setConfirm(false)
+    setSumErr('')
     api.meetingRead(openId).then(setText)
+    api.meetingSummary(openId).then((sm) => {
+      setSummary(sm)
+      setTab(sm ? 'summary' : 'transcript')
+    })
   }, [openId, api])
 
   const start = async () => {
@@ -146,25 +155,32 @@ export default function MeetingView({ workspace, agents, meeting, onBack, onOpen
                   </select>
                   <button
                     className="btn small"
-                    disabled={!sumAgent || sent === 'chat'}
-                    title="Reply in chat with summary, decisions and action items. Writes nothing."
+                    disabled={busy}
+                    title="Summarize right here. No agent involved."
                     onClick={async () => {
-                      await api.meetingSummarize(opened.id, sumAgent, 'chat')
-                      setSent('chat')
+                      setBusy(true)
+                      setSumErr('')
+                      try {
+                        setSummary(await api.meetingSummarize(opened.id))
+                        setTab('summary')
+                      } catch (e) {
+                        setSumErr(String((e as Error).message).replace(/^.*Error: /, ''))
+                      }
+                      setBusy(false)
                     }}
                   >
-                    {sent === 'chat' ? 'Summary requested ✓' : 'Summarize'}
+                    {busy ? 'Summarizing…' : summary ? 'Re-summarize' : 'Summarize'}
                   </button>
                   <button
                     className="btn small primary"
-                    disabled={!sumAgent || sent === 'kb'}
-                    title="Write a summary page and fold decisions and facts into the knowledge base."
+                    disabled={!sumAgent || sent}
+                    title="Ask the selected agent to fold this meeting into the knowledge base."
                     onClick={async () => {
-                      await api.meetingSummarize(opened.id, sumAgent, 'kb')
-                      setSent('kb')
+                      await api.meetingToKb(opened.id, sumAgent)
+                      setSent(true)
                     }}
                   >
-                    {sent === 'kb' ? 'Added ✓' : 'Add to knowledge base'}
+                    {sent ? 'Sent to agent ✓' : 'Add to knowledge base'}
                   </button>
                   {sent && (
                     <button className="note-btn" onClick={() => onOpenAgent(sumAgent)}>
@@ -175,8 +191,17 @@ export default function MeetingView({ workspace, agents, meeting, onBack, onOpen
                     {confirm ? 'Really delete?' : 'Delete'}
                   </button>
                 </div>
+                {sumErr && <div className="error-text" style={{ padding: '8px 16px' }}>{sumErr}</div>}
+                <div className="tabs">
+                  <button className={'tab' + (tab === 'transcript' ? ' on' : '')} onClick={() => setTab('transcript')}>
+                    Transcript
+                  </button>
+                  <button className={'tab' + (tab === 'summary' ? ' on' : '')} onClick={() => setTab('summary')} disabled={!summary && !busy}>
+                    Summary
+                  </button>
+                </div>
                 <div className="meeting-doc">
-                  <Markdown text={text} />
+                  {tab === 'summary' ? busy && !summary ? <div className="hint">Summarizing…</div> : <Markdown text={summary} /> : <Markdown text={text} />}
                 </div>
               </>
             )}

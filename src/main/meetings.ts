@@ -2,12 +2,13 @@ import { spawn, execFile, execSync, type ChildProcess } from 'node:child_process
 import fs from 'node:fs'
 import path from 'node:path'
 import { app } from 'electron'
-import { randomUUID } from 'node:crypto'
+import { query } from '@anthropic-ai/claude-agent-sdk'
 import type { Meeting, MeetingSegment } from '../shared/types'
 
 const home = () => process.env.CLAUDE_DESK_HOME || path.join(app.getPath('home'), '.claude-desk')
 const modelPath = () => process.env.CLAUDE_DESK_WHISPER_MODEL || path.join(home(), 'models', 'ggml-large-v3-turbo.bin')
 const whisperBin = () => process.env.CLAUDE_DESK_WHISPER || '/opt/homebrew/bin/whisper-cli'
+const claudeBin = () => process.env.CLAUDE_DESK_CLI || '/Users/rafaelcosta/.local/bin/claude'
 const helperBin = () => process.env.CLAUDE_DESK_AUDIOTAP || path.join(app.getAppPath(), 'resources', 'audiotap')
 
 type Emit = (m: Meeting) => void
@@ -226,7 +227,7 @@ export function deleteMeeting(id: string) {
 
 const meetingRef = (m: Meeting) => `the meeting "${m.title}" (${new Date(m.startedAt).toLocaleString()}). Transcript (Me = Rafael, Them = the other side): ${m.kbPath ?? m.transcriptPath}`
 
-/** Chat-only summary. No files touched. */
+/** (kept for agents) */
 export const summaryPrompt = (m: Meeting) =>
   `Summarize ${meetingRef(m)}
 
@@ -241,3 +242,38 @@ export const kbPrompt = (m: Meeting) =>
 3. Extract durable facts (decisions, conventions, how-things-work, deadlines that matter) and put each in the right existing page: projects/<repo>.md, architecture.md, practices.md, or decisions/YYYY-MM-DD-<slug>.md for decisions with a why. Replace stale lines rather than duplicating. Skip chit-chat and task status.
 4. Add a "## Meetings" section to README.md if missing and list the summary page there. Commit.
 5. Reply with a short list of what you changed. Do not create tasks or message anyone.`
+
+/** Direct summary, no agent session involved: one Claude call over the transcript. Saved as summary.md next to the recording. */
+export async function summarizeInline(id: string, model?: string): Promise<string> {
+  const dir = path.join(home(), 'meetings', id)
+  const meta = JSON.parse(fs.readFileSync(path.join(dir, 'meeting.json'), 'utf8')) as Meeting
+  const transcript = readMeeting(id)
+  if (!transcript.trim()) throw new Error('Empty transcript')
+  const prompt = `Meeting: "${meta.title}" on ${new Date(meta.startedAt).toLocaleString()}. Speakers: Me = Rafael, Them = the other side.
+
+Transcript:
+${transcript}
+
+Write markdown with these sections, terse bullets, no preamble:
+## Summary (max 5 lines)
+## Decisions
+## Action items (owner, due date if said)
+## Open questions
+## Suggested tasks (title, suggested owner) — suggestions only
+Omit a section if empty.`
+  let out = ''
+  for await (const m of query({ prompt, options: { cwd: dir, pathToClaudeCodeExecutable: claudeBin(), settingSources: [], tools: [], maxTurns: 1, model: model || 'claude-sonnet-5', systemPrompt: 'You write meeting notes. Output markdown only.' } })) {
+    if (m.type === 'assistant') for (const b of m.message.content) if (b.type === 'text') out += b.text
+    if (m.type === 'result') break
+  }
+  out = out.trim()
+  if (!out) throw new Error('No summary returned')
+  fs.writeFileSync(path.join(dir, 'summary.md'), out)
+  meta.summaryPath = path.join(dir, 'summary.md')
+  fs.writeFileSync(path.join(dir, 'meeting.json'), JSON.stringify(meta, null, 2))
+  return out
+}
+export function readSummary(id: string): string {
+  const f = path.join(home(), 'meetings', id, 'summary.md')
+  return fs.existsSync(f) ? fs.readFileSync(f, 'utf8') : ''
+}

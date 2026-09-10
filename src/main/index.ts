@@ -6,7 +6,7 @@ import type { Event } from '../shared/types'
 import { Sessions } from './sessions'
 import { kbDelete, kbList, kbRead, kbWrite } from './kb'
 import * as mcp from './mcp'
-import { Recorder, deleteMeeting, kbPrompt, listMeetings, readMeeting, summaryPrompt } from './meetings'
+import { Recorder, deleteMeeting, kbPrompt, listMeetings, readMeeting, readSummary, summarizeInline } from './meetings'
 
 // GUI apps on macOS get a bare PATH; pull the user's shell PATH so `claude`, node, MCP servers resolve.
 try {
@@ -102,10 +102,12 @@ ipcMain.handle('meeting:current', () => recorder.meeting)
 ipcMain.handle('meeting:list', (_, wsId) => listMeetings(wsId))
 ipcMain.handle('meeting:read', (_, id) => readMeeting(id))
 ipcMain.handle('meeting:delete', (_, id) => deleteMeeting(id))
-ipcMain.handle('meeting:summarize', (_, id, agentId, mode) => {
+ipcMain.handle('meeting:summarize', (_, id) => summarizeInline(id))
+ipcMain.handle('meeting:summary', (_, id) => readSummary(id))
+ipcMain.handle('meeting:kb', (_, id, agentId) => {
   const m = listMeetings(sessions.workspaceOfAgent(agentId)).find((x) => x.id === id)
   if (!m) throw new Error('No such meeting')
-  return sessions.send(agentId, mode === 'kb' ? kbPrompt(m) : summaryPrompt(m))
+  return sessions.send(agentId, kbPrompt(m))
 })
 ipcMain.handle('shell:open', (_, url) => shell.openExternal(String(url)))
 ipcMain.handle('clipboard:write', (_, text) => clipboard.writeText(String(text)))
