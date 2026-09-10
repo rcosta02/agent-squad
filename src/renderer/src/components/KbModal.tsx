@@ -1,6 +1,5 @@
-import { useCallback, useEffect, useState } from 'react'
-import MDEditor from '@uiw/react-md-editor'
-import '@uiw/react-md-editor/markdown-editor.css'
+import React, { useCallback, useEffect, useState } from 'react'
+import MdEditor from './MdEditor'
 import type { Workspace } from '../../../shared/types'
 
 type Props = { workspace: Workspace; onClose: () => void }
@@ -8,6 +7,7 @@ type Props = { workspace: Workspace; onClose: () => void }
 export default function KbModal({ workspace, onClose }: Props) {
   const api = window.api
   const [files, setFiles] = useState<string[]>([])
+  const [closed, setClosed] = useState<Set<string>>(new Set())
   const [current, setCurrent] = useState<string | null>(null)
   const [text, setText] = useState('')
   const [saved, setSaved] = useState('')
@@ -97,12 +97,53 @@ export default function KbModal({ workspace, onClose }: Props) {
             />
           )}
           <div className="kb-files">
-            {files.map((f) => (
-              <button key={f} className={'kb-file' + (f === current ? ' current' : '')} onClick={() => open(f)} title={f}>
-                {f.includes('/') ? <span className="kb-dir">{f.split('/')[0]}/</span> : null}
-                {f.split('/').pop()}
-              </button>
-            ))}
+            {(() => {
+              type Node = { name: string; path: string; dirs: Map<string, Node>; files: string[] }
+              const root: Node = { name: '', path: '', dirs: new Map(), files: [] }
+              for (const f of files) {
+                const parts = f.split('/')
+                let n = root
+                for (const d of parts.slice(0, -1)) {
+                  if (!n.dirs.has(d)) n.dirs.set(d, { name: d, path: (n.path ? n.path + '/' : '') + d, dirs: new Map(), files: [] })
+                  n = n.dirs.get(d)!
+                }
+                n.files.push(f)
+              }
+              const render = (n: Node, depth: number): React.ReactNode => (
+                <>
+                  {n.files.map((f) => (
+                    <button key={f} className={'kb-file' + (f === current ? ' current' : '')} style={{ paddingLeft: 8 + depth * 14 }} onClick={() => open(f)} title={f}>
+                      <span className="kb-ico">▫</span>
+                      {f.split('/').pop()}
+                    </button>
+                  ))}
+                  {[...n.dirs.values()]
+                    .sort((a, b) => a.name.localeCompare(b.name))
+                    .map((d) => (
+                      <div key={d.path}>
+                        <button
+                          className="kb-dir-row"
+                          style={{ paddingLeft: 8 + depth * 14 }}
+                          onClick={() =>
+                            setClosed((prev) => {
+                              const next = new Set(prev)
+                              if (next.has(d.path)) next.delete(d.path)
+                              else next.add(d.path)
+                              return next
+                            })
+                          }
+                        >
+                          <span className="kb-ico">{closed.has(d.path) ? '▸' : '▾'}</span>
+                          {d.name}
+                          <span className="kb-count">{d.files.length}</span>
+                        </button>
+                        {!closed.has(d.path) && render(d, depth + 1)}
+                      </div>
+                    ))}
+                </>
+              )
+              return render(root, 0)
+            })()}
           </div>
           <button className="btn" onClick={() => api.openKb(workspace.id)}>
             Open in Finder
@@ -125,9 +166,7 @@ export default function KbModal({ workspace, onClose }: Props) {
               Close
             </button>
           </div>
-          <div className="kb-md" data-color-mode="dark">
-            <MDEditor value={text} onChange={(v) => setText(v ?? '')} height="100%" preview="live" visibleDragbar={false} textareaProps={{ spellCheck: false }} />
-          </div>
+          <div className="kb-md">{current && <MdEditor docKey={current} value={text} onChange={setText} />}</div>
         </div>
       </div>
     </div>

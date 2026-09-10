@@ -861,12 +861,23 @@ section.plan-card ul { margin: 0 0 8px; padding-left: 20px; }
 .swatch.custom input { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%; }
 .board-col.blocked-col { background: #24191c; }
 
-/* ---------- kb markdown editor ---------- */
+/* ---------- kb markdown editor (wysiwyg) ---------- */
 .kb-md { flex: 1; min-height: 0; display: flex; }
-.kb-md .w-md-editor { flex: 1; height: 100% !important; background: var(--bg); box-shadow: none; border-radius: 0; --color-canvas-default: #1c1c1e; --color-border-default: #2c2c2e; }
-.kb-md .w-md-editor-toolbar { background: #232325; border-bottom: 1px solid var(--border); padding: 4px 8px; }
-.kb-md .w-md-editor-toolbar li > button { color: var(--muted); height: 26px; }
-.kb-md .w-md-editor-toolbar li > button:hover { color: var(--text); background: #3a3a3c; }
-.kb-md .w-md-editor-text, .kb-md .w-md-editor-text-pre > code, .kb-md .w-md-editor-text-input { font-family: "SF Mono", Menlo, monospace !important; font-size: 12.5px !important; line-height: 1.55 !important; }
-.kb-md .wmde-markdown { background: var(--bg); color: var(--text); font-size: 13.5px; }
-.kb-md .w-md-editor-preview { box-shadow: inset 1px 0 0 var(--border); }
+.md-host { flex: 1; min-height: 0; }
+.kb-md .toastui-editor-defaultUI { border: 0; border-radius: 0; height: 100% !important; display: flex; flex-direction: column; }
+.kb-md .toastui-editor-defaultUI-toolbar { background: #232325; border-bottom: 1px solid var(--border); padding: 0 8px; }
+.kb-md .toastui-editor-toolbar-icons { border-color: transparent; }
+.kb-md .toastui-editor-main { flex: 1; min-height: 0; }
+.kb-md .toastui-editor-ww-container { background: var(--bg); }
+.kb-md .toastui-editor-contents { font-family: inherit; font-size: 14px; line-height: 1.6; color: var(--text); }
+.kb-md .toastui-editor-contents h1, .kb-md .toastui-editor-contents h2, .kb-md .toastui-editor-contents h3 { color: #fff; border-color: var(--border); }
+.kb-md .toastui-editor-contents p, .kb-md .toastui-editor-contents li { color: var(--text); }
+.kb-md .toastui-editor-contents code, .kb-md .toastui-editor-contents pre { background: #151517; color: #e5e5ea; }
+.kb-md .toastui-editor-contents a { color: var(--blue); }
+.kb-md .toastui-editor-contents table th, .kb-md .toastui-editor-contents table td { border-color: #3a3a3c; }
+.kb-md .toastui-editor-contents table th { background: #2c2c2e; }
+.kb-dir-row { display: flex; align-items: center; gap: 6px; width: 100%; text-align: left; border: 0; background: none; color: var(--text); font: inherit; font-size: 13px; font-weight: 600; padding: 5px 8px; border-radius: 6px; cursor: pointer; }
+.kb-dir-row:hover { background: var(--border); }
+.kb-file { display: flex; align-items: center; gap: 6px; }
+.kb-ico { width: 12px; color: var(--muted); font-size: 11px; flex: none; }
+.kb-count { margin-left: auto; font-size: 11px; color: var(--muted); }
