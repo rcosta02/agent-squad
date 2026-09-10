@@ -134,6 +134,19 @@ export class Sessions {
     }
   }
 
+  /** Names whisper should know: you, agents, workspace, project names from the KB index. */
+  vocabFor(wsId?: string) {
+    const names = new Set<string>(['Rafael', 'Claude'])
+    for (const a of this.agents) if (!wsId || a.workspaceId === wsId) names.add(a.name)
+    for (const w of this.workspaces) {
+      if (wsId && w.id !== wsId) continue
+      names.add(w.name)
+      const idx = w.kbDir ? readIndex(w.kbDir, 4000) : ''
+      for (const m of idx.matchAll(/\*\*([^*]{2,40})\*\*/g)) names.add(m[1])
+    }
+    return [...names].join(', ') + '.'
+  }
+
   kbDirOf(wsId: string) {
     const w = this.workspaces.find((x) => x.id === wsId)
     return w?.kbDir ? this.kbDir(w.id) : undefined

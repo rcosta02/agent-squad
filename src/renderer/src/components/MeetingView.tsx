@@ -31,6 +31,24 @@ export default function MeetingView({ workspace, agents, meeting, onBack, onOpen
   const [busy, setBusy] = useState(false)
   const [sumErr, setSumErr] = useState('')
   const [confirm, setConfirm] = useState(false)
+  const pref = (k: string, d: string) => {
+    try {
+      return localStorage.getItem('claude-desk.' + k) ?? d
+    } catch {
+      return d
+    }
+  }
+  const [language, setLanguage] = useState(() => pref('lang', 'auto'))
+  const [model, setModel] = useState(() => pref('whisper', 'ggml-large-v3-turbo.bin'))
+  const [models, setModels] = useState<{ file: string; label: string; available: boolean }[]>([])
+  useEffect(() => {
+    api.whisperModels().then(setModels)
+  }, [api])
+  const setPref = (k: string, v: string) => {
+    try {
+      localStorage.setItem('claude-desk.' + k, v)
+    } catch {}
+  }
   const listRef = useRef<HTMLDivElement>(null)
 
   const live = meeting && meeting.workspaceId === workspace.id && meeting.status !== 'done' ? meeting : null
@@ -64,7 +82,7 @@ export default function MeetingView({ workspace, agents, meeting, onBack, onOpen
   const start = async () => {
     setError('')
     try {
-      await api.meetingStart(workspace.id, title.trim() || `Meeting ${new Date().toLocaleString()}`)
+      await api.meetingStart(workspace.id, title.trim() || `Meeting ${new Date().toLocaleString()}`, { language, model })
       setTitle('')
     } catch (e) {
       setError(String((e as Error).message).replace(/^.*Error: /, ''))
@@ -122,6 +140,21 @@ export default function MeetingView({ workspace, agents, meeting, onBack, onOpen
             <div className="meeting-new">
               <div className="drawer-label">New meeting</div>
               <input type="text" value={title} autoFocus placeholder="Title, e.g. Weekly sync with David" onChange={(e) => setTitle(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && title.trim() && start()} />
+              <div className="rec-opts">
+                <select className="rev-pick" value={language} onChange={(e) => (setLanguage(e.target.value), setPref('lang', e.target.value))} title="Spoken language">
+                  <option value="auto">Auto language</option>
+                  <option value="en">English</option>
+                  <option value="pt">Português</option>
+                  <option value="es">Español</option>
+                </select>
+                <select className="rev-pick" value={model} onChange={(e) => (setModel(e.target.value), setPref('whisper', e.target.value))} title="Whisper model">
+                  {models.map((m) => (
+                    <option key={m.file} value={m.file} disabled={!m.available}>
+                      {m.label}{m.available ? '' : ' — downloading…'}
+                    </option>
+                  ))}
+                </select>
+              </div>
               <button className="btn primary rec-start" onClick={start} disabled={!title.trim() || (!!meeting && meeting.status !== 'done')} title={title.trim() ? '' : 'Give the meeting a title first'}>
                 <IRecord /> Record{title.trim() ? ` “${title.trim().slice(0, 24)}${title.trim().length > 24 ? '…' : ''}”` : ''}
               </button>

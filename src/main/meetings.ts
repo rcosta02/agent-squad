@@ -6,7 +6,14 @@ import { query } from '@anthropic-ai/claude-agent-sdk'
 import type { Meeting, MeetingSegment } from '../shared/types'
 
 const home = () => process.env.CLAUDE_DESK_HOME || path.join(app.getPath('home'), '.claude-desk')
-const modelPath = () => process.env.CLAUDE_DESK_WHISPER_MODEL || path.join(home(), 'models', 'ggml-large-v3-turbo.bin')
+const modelsDir = () => path.join(home(), 'models')
+export const MODELS = [
+  { file: 'ggml-large-v3-turbo.bin', label: 'Turbo (fast)' },
+  { file: 'ggml-large-v3.bin', label: 'Large v3 (most accurate, ~3× slower)' }
+]
+const modelPath = (file?: string) => (file ? path.join(modelsDir(), file) : process.env.CLAUDE_DESK_WHISPER_MODEL || path.join(modelsDir(), MODELS[0].file))
+export const whisperModels = () => MODELS.map((m) => ({ ...m, available: fs.existsSync(path.join(modelsDir(), m.file)) }))
+export type WhisperOpts = { language?: string; model?: string; prompt?: string }
 const whisperBin = () => process.env.CLAUDE_DESK_WHISPER || '/opt/homebrew/bin/whisper-cli'
 const claudeBin = () => process.env.CLAUDE_DESK_CLI || '/Users/rafaelcosta/.local/bin/claude'
 const helperBin = () => process.env.CLAUDE_DESK_AUDIOTAP || path.join(app.getAppPath(), 'resources', 'audiotap')
@@ -21,6 +28,8 @@ export class Recorder {
   private queue: Promise<void> = Promise.resolve()
   private stopResolve: (() => void) | null = null
   private kbDir: string | undefined
+  private vocab = ''
+  private lastText: Record<'mic' | 'sys', string> = { mic: '', sys: '' }
 
   constructor(private emit: Emit) {}
 
@@ -30,14 +39,16 @@ export class Recorder {
     if (!fs.existsSync(modelPath())) throw new Error(`Whisper model missing at ${modelPath()}`)
   }
 
-  start(workspaceId: string, title: string, kbDir: string | undefined) {
+  start(workspaceId: string, title: string, kbDir: string | undefined, opts: WhisperOpts & { vocab?: string } = {}) {
     if (this.meeting && this.meeting.status === 'recording') throw new Error('Already recording')
     this.preflight()
     const id = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19)
     const dir = path.join(home(), 'meetings', id)
     fs.mkdirSync(dir, { recursive: true })
     this.kbDir = kbDir
-    this.meeting = { id, workspaceId, title: title || 'Meeting', dir, startedAt: Date.now(), status: 'recording', segments: [], pendingChunks: 0 }
+    this.vocab = opts.vocab ?? ''
+    this.lastText = { mic: '', sys: '' }
+    this.meeting = { id, workspaceId, title: title || 'Meeting', dir, startedAt: Date.now(), status: 'recording', segments: [], pendingChunks: 0, language: opts.language ?? 'auto', model: opts.model }
     this.save()
     const child = spawn(helperBin(), [dir, '12'], { stdio: ['ignore', 'pipe', 'pipe'] })
     this.child = child
@@ -88,7 +99,11 @@ export class Recorder {
         } else m.silentSys = 0
       }
       try {
-        const segs: MeetingSegment[] = (await transcribe(c.path)).map((s) => ({ t: c.start + s.t, who, text: s.text }))
+        // Context for whisper: names/jargon + the tail of what this speaker just said (keeps spelling and language stable).
+        const prompt = [this.vocab, this.lastText[c.track].slice(-200)].filter(Boolean).join(' ')
+        let segs: MeetingSegment[] = (await transcribe(c.path, { language: m.language, model: m.model, prompt })).map((s) => ({ t: c.start + s.t, who, text: s.text }))
+        segs = trimSeam(this.lastText[c.track], segs)
+        if (segs.length) this.lastText[c.track] = segs.map((s) => s.text).join(' ')
         if (segs.length) {
           m.segments.push(...segs)
           m.segments.sort((a, b) => a.t - b.t)
@@ -173,14 +188,32 @@ export function wavRms(file: string): number {
 }
 const SILENCE_RMS = 40
 
+/** Chunks overlap by 0.3 s; drop words at the start of the new chunk that repeat the end of the previous one. */
+export function trimSeam(prevText: string, segs: MeetingSegment[]): MeetingSegment[] {
+  if (!prevText || !segs.length) return segs
+  const norm = (w: string) => w.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, '')
+  const prev = prevText.split(/\s+/).map(norm).filter(Boolean)
+  const first = segs[0]
+  const words = first.text.split(/\s+/)
+  for (let n = Math.min(4, prev.length, words.length); n >= 1; n--) {
+    if (prev.slice(-n).join(' ') === words.slice(0, n).map(norm).join(' ')) {
+      const rest = words.slice(n).join(' ').trim()
+      return rest ? [{ ...first, text: rest }, ...segs.slice(1)] : segs.slice(1)
+    }
+  }
+  return segs
+}
+
 /** whisper-cli → segments with seconds offsets. Skips near-silent files fast. */
-export function transcribe(file: string): Promise<{ t: number; text: string }[]> {
+export function transcribe(file: string, o: WhisperOpts = {}): Promise<{ t: number; text: string }[]> {
   return new Promise((resolve, reject) => {
     const st = fs.statSync(file)
     if (st.size < 19200) return resolve([]) // < 0.6s of audio: whisper hallucinates on stubs
     if (wavRms(file) < SILENCE_RMS) return resolve([])
     const out = file.replace(/\.wav$/, '')
-    execFile(whisperBin(), ['-m', modelPath(), '-f', file, '-l', 'auto', '-np', '-oj', '-of', out, '-t', '6'], { timeout: 240_000 }, (err) => {
+    const args = ['-m', modelPath(o.model), '-f', file, '-l', o.language || 'auto', '-np', '-oj', '-of', out, '-t', '6', '-bo', '5', '-bs', '5']
+    if (o.prompt) args.push('--prompt', o.prompt.slice(0, 600))
+    execFile(whisperBin(), args, { timeout: 300_000 }, (err) => {
       if (err) return reject(err)
       try {
         const j = JSON.parse(fs.readFileSync(out + '.json', 'utf8'))
@@ -316,13 +349,13 @@ export function renameMeeting(id: string, title: string) {
 }
 
 /** Dictation: a WAV (16 kHz mono 16-bit) from the composer → text. */
-export async function dictate(wavBase64: string): Promise<string> {
+export async function dictate(wavBase64: string, language?: string, vocab?: string): Promise<string> {
   const dir = path.join(home(), 'dictation')
   fs.mkdirSync(dir, { recursive: true })
   const f = path.join(dir, `${Date.now()}.wav`)
   fs.writeFileSync(f, Buffer.from(wavBase64, 'base64'))
   try {
-    return (await transcribe(f)).map((s) => s.text).join(' ').trim()
+    return (await transcribe(f, { language, prompt: vocab })).map((s) => s.text).join(' ').trim()
   } finally {
     fs.rmSync(f, { force: true })
     fs.rmSync(f.replace(/\.wav$/, '.json'), { force: true })

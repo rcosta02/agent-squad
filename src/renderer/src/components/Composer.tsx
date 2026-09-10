@@ -109,7 +109,11 @@ export default function Composer({ agentName, agentId, running, pending, onClear
       stopWave()
       stream.getTracks().forEach((t) => t.stop())
       setDictating('busy')
-      const text = await window.api.dictate(wav)
+      let lang: string | undefined
+      try {
+        lang = localStorage.getItem('claude-desk.lang') ?? undefined
+      } catch {}
+      const text = await window.api.dictate(wav, lang && lang !== 'auto' ? lang : undefined)
       if (text) setText((t) => (t.trim() ? t.replace(/\s*$/, ' ') : '') + text)
       ref.current?.focus()
     } catch (e) {

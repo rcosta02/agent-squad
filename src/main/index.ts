@@ -6,7 +6,7 @@ import type { Event } from '../shared/types'
 import { Sessions } from './sessions'
 import { kbDelete, kbList, kbRead, kbWrite } from './kb'
 import * as mcp from './mcp'
-import { Recorder, addToKb, dictate, deleteMeeting, listMeetings, readMeeting, readSummary, renameMeeting, summarizeInline } from './meetings'
+import { Recorder, addToKb, dictate, whisperModels, deleteMeeting, listMeetings, readMeeting, readSummary, renameMeeting, summarizeInline } from './meetings'
 
 // GUI apps on macOS get a bare PATH; pull the user's shell PATH so `claude`, node, MCP servers resolve.
 try {
@@ -96,7 +96,8 @@ ipcMain.handle('mcp:authDone', () => {
   authCtl = null
 })
 ipcMain.handle('mcp:authInput', (_, text) => authCtl?.write(String(text)))
-ipcMain.handle('meeting:start', (_, wsId, title) => recorder.start(wsId, title, sessions.kbDirOf(wsId)))
+ipcMain.handle('meeting:start', (_, wsId, title, opts) => recorder.start(wsId, title, sessions.kbDirOf(wsId), { ...(opts ?? {}), vocab: sessions.vocabFor(wsId) }))
+ipcMain.handle('whisper:models', () => whisperModels())
 ipcMain.handle('meeting:stop', () => recorder.stop())
 ipcMain.handle('meeting:current', () => recorder.meeting)
 ipcMain.handle('meeting:list', (_, wsId) => listMeetings(wsId))
@@ -111,7 +112,7 @@ ipcMain.handle('meeting:kb', (_, id) => {
   return addToKb(id, kb)
 })
 ipcMain.handle('meeting:rename', (_, id, title) => renameMeeting(id, title))
-ipcMain.handle('dictate', (_, wav) => dictate(wav))
+ipcMain.handle('dictate', (_, wav, language) => dictate(wav, language, sessions.vocabFor()))
 ipcMain.handle('mic:access', () => systemPreferences.askForMediaAccess('microphone'))
 ipcMain.handle('shell:open', (_, url) => shell.openExternal(String(url)))
 ipcMain.handle('clipboard:write', (_, text) => clipboard.writeText(String(text)))

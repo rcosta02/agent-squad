@@ -11,7 +11,8 @@ guard args.count >= 2 else { FileHandle.standardError.write("usage: audiotap <ou
 let outDir = args[1]
 let maxChunk = args.count >= 3 ? Double(args[2]) ?? 12 : 12   // hard cap per chunk (s)
 let minSpeech = 1.5     // don't cut before this much audio (s)
-let pauseSec = 0.6      // trailing silence that ends a chunk (s)
+let pauseSec = 0.7      // trailing silence that ends a chunk (s)
+let overlap = 4800      // samples (0.3 s) carried into the next chunk so words at the seam are not lost
 let silenceRms = 120.0  // 16-bit RMS below this = silence
 let chunkSeconds = maxChunk
 try? FileManager.default.createDirectory(atPath: outDir, withIntermediateDirectories: true)
@@ -74,11 +75,13 @@ final class Track {
     guard hadSpeech || final else { samples.removeAll(keepingCapacity: true); startSample = total; return }
     let start = Double(startSample) / 16000
     let dur = Double(samples.count) / 16000
+    let tail = final ? [] : Array(samples.suffix(overlap))
     if let path = flush(index: index) {
       emit(["track": name, "path": path, "start": start, "dur": dur, "final": final])
       index += 1
     }
-    startSample = total
+    samples = tail
+    startSample = total - tail.count
     silentRun = 0
     hadSpeech = false
   }

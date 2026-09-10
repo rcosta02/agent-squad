@@ -76,6 +76,8 @@ export type Meeting = {
   segments: MeetingSegment[]
   pendingChunks: number
   transcriptPath?: string
+  language?: string // 'auto' | 'en' | 'pt' ...
+  model?: string // whisper model file name
   error?: string
   silentSys?: number // consecutive all-zero system chunks (permission missing)
 }
@@ -189,9 +191,10 @@ export type Api = {
   mcpAuthDone(): Promise<void> // cancel a running login
   mcpAuthInput(text: string): Promise<void> // answer a prompt of the running login (e.g. paste the redirect URL)
   openExternal(url: string): Promise<void>
-  dictate(wavBase64: string): Promise<string> // 16 kHz mono 16-bit WAV → text via whisper
+  dictate(wavBase64: string, language?: string): Promise<string> // 16 kHz mono 16-bit WAV → text via whisper
   micAccess(): Promise<boolean>
-  meetingStart(workspaceId: string, title: string): Promise<Meeting>
+  meetingStart(workspaceId: string, title: string, opts?: { language?: string; model?: string }): Promise<Meeting>
+  whisperModels(): Promise<{ file: string; label: string; available: boolean }[]>
   meetingStop(): Promise<Meeting | null> // stops and finishes transcription; nothing else happens
   meetingCurrent(): Promise<Meeting | null>
   meetingList(workspaceId: string): Promise<Meeting[]> // newest first
