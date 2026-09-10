@@ -306,7 +306,11 @@ export default function App() {
         onSwitch={switchWorkspace}
         onNew={() => setModal({ mode: 'ws-create' })}
         onMeeting={() => (setShowBoard(false), setShowMeeting(true))}
+        onBoard={() => (setShowMeeting(false), setShowBoard(true))}
+        onChat={() => (setShowMeeting(false), setShowBoard(false))}
+        view={showMeeting ? 'meeting' : showBoard ? 'board' : 'chat'}
         recording={meeting?.status === 'recording' || meeting?.status === 'stopping'}
+        boardUnread={workspace?.boardUnread ?? 0}
       />
       {!isBoard && (
       <Sidebar
@@ -317,7 +321,6 @@ export default function App() {
         agents={sorted}
         selectedId={isGroup ? 'group' : (selected?.id ?? null)}
         groupUnread={workspace?.groupUnread ?? 0}
-        boardUnread={workspace?.boardUnread ?? 0}
         running={running}
         search={search}
         onSearch={setSearch}
@@ -326,7 +329,6 @@ export default function App() {
           setSelectedId(id)
         }}
         onNew={() => setModal({ mode: 'create' })}
-        onBoard={() => (setShowMeeting(false), setShowBoard(true))}
       />
       )}
       <main className="chat-pane">

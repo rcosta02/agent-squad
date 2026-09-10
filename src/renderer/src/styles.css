@@ -825,3 +825,13 @@ section.plan-card ul { margin: 0 0 8px; padding-left: 20px; }
 .meeting-title-btn { border: 0; background: none; color: var(--text); font: inherit; font-weight: 600; cursor: text; padding: 4px 6px; border-radius: 6px; }
 .meeting-title-btn:hover { background: var(--border); }
 .meeting-rename { font: inherit; font-weight: 600; background: var(--bg); color: var(--text); border: 1px solid var(--blue); border-radius: 6px; padding: 4px 6px; outline: 0; min-width: 260px; }
+
+/* ---------- rail nav (bottom) ---------- */
+.rail-footer { gap: 6px; padding-bottom: 4px; }
+.rail-nav { position: relative; width: 38px; height: 38px; border-radius: 10px; border: 0; background: none; color: var(--muted); cursor: pointer; display: flex; align-items: center; justify-content: center; -webkit-app-region: no-drag; transition: background 0.12s, color 0.12s; }
+.rail-nav:hover { background: #2c2c2e; color: var(--text); }
+.rail-nav.active { background: #3a3a3c; color: #fff; }
+.rail-nav.live { color: #ff375f; }
+.rail-nav .rail-badge { top: 2px; right: 2px; }
+.rail-footer .initials { margin-top: 6px; }
+.rail-mic { display: none; }

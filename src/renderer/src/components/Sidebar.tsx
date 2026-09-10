@@ -11,8 +11,6 @@ type Props = {
   agents: Agent[]
   selectedId: string | null // agent id or 'group'
   groupUnread: number
-  boardUnread: number
-  onBoard: () => void
   running: Set<string>
   search: string
   onSearch: (q: string) => void
@@ -20,7 +18,7 @@ type Props = {
   onNew: () => void
 }
 
-export default function Sidebar({ workspace, onNewWorkspace, onEditWorkspace, onOpenKb, agents, selectedId, groupUnread, boardUnread, onBoard, running, search, onSearch, onSelect, onNew }: Props) {
+export default function Sidebar({ workspace, onNewWorkspace, onEditWorkspace, onOpenKb, agents, selectedId, groupUnread, running, search, onSearch, onSelect, onNew }: Props) {
   const [menu, setMenu] = useState(false)
   const q = search.trim().toLowerCase()
   const visible = q
@@ -72,14 +70,6 @@ export default function Sidebar({ workspace, onNewWorkspace, onEditWorkspace, on
             </>
           )}
         </div>
-        <button className="icon-btn board-btn" title="Board" onClick={onBoard}>
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round">
-            <rect x="2" y="2.5" width="3.2" height="11" rx="1" />
-            <rect x="6.4" y="2.5" width="3.2" height="7" rx="1" />
-            <rect x="10.8" y="2.5" width="3.2" height="9" rx="1" />
-          </svg>
-          {boardUnread > 0 && <span className="rail-badge small">{boardUnread}</span>}
-        </button>
         <button className="icon-btn" title="New agent" onClick={onNew}>
           <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
             <path d="M8 3v10M3 8h10" />
