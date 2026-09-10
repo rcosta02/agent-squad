@@ -23,7 +23,7 @@ export default function MeetingView({ workspace, agents, meeting, onBack, onOpen
   const [openId, setOpenId] = useState<string | null>(null)
   const [text, setText] = useState('')
   const [sumAgent, setSumAgent] = useState(agents.find((a) => /secretary|notes|meeting/i.test(a.name))?.id ?? agents[0]?.id ?? '')
-  const [sent, setSent] = useState(false)
+  const [sent, setSent] = useState<'chat' | 'kb' | null>(null)
   const [confirm, setConfirm] = useState(false)
   const listRef = useRef<HTMLDivElement>(null)
 
@@ -44,7 +44,7 @@ export default function MeetingView({ workspace, agents, meeting, onBack, onOpen
   }, [live?.segments.length])
   useEffect(() => {
     if (!openId) return
-    setSent(false)
+    setSent(null)
     setConfirm(false)
     api.meetingRead(openId).then(setText)
   }, [openId, api])
@@ -135,7 +135,7 @@ export default function MeetingView({ workspace, agents, meeting, onBack, onOpen
             ) : (
               <>
                 <div className="meeting-toolbar">
-                  <span className="hint mono">{opened.kbPath?.split('/').slice(-2).join('/') ?? opened.id}</span>
+                  <span className="hint mono meeting-path">{opened.kbPath?.split('/').slice(-2).join('/') ?? opened.id}</span>
                   <span style={{ flex: 1 }} />
                   <select className="rev-pick" value={sumAgent} onChange={(e) => setSumAgent(e.target.value)}>
                     {agents.map((a) => (
@@ -145,15 +145,26 @@ export default function MeetingView({ workspace, agents, meeting, onBack, onOpen
                     ))}
                   </select>
                   <button
-                    className="btn small primary"
-                    disabled={!sumAgent || sent}
-                    title="Ask this agent to write a summary page in the KB. Nothing happens otherwise."
+                    className="btn small"
+                    disabled={!sumAgent || sent === 'chat'}
+                    title="Reply in chat with summary, decisions and action items. Writes nothing."
                     onClick={async () => {
-                      await api.meetingSummarize(opened.id, sumAgent)
-                      setSent(true)
+                      await api.meetingSummarize(opened.id, sumAgent, 'chat')
+                      setSent('chat')
                     }}
                   >
-                    {sent ? 'Sent ✓' : 'Summarize into KB'}
+                    {sent === 'chat' ? 'Summary requested ✓' : 'Summarize'}
+                  </button>
+                  <button
+                    className="btn small primary"
+                    disabled={!sumAgent || sent === 'kb'}
+                    title="Write a summary page and fold decisions and facts into the knowledge base."
+                    onClick={async () => {
+                      await api.meetingSummarize(opened.id, sumAgent, 'kb')
+                      setSent('kb')
+                    }}
+                  >
+                    {sent === 'kb' ? 'Added ✓' : 'Add to knowledge base'}
                   </button>
                   {sent && (
                     <button className="note-btn" onClick={() => onOpenAgent(sumAgent)}>

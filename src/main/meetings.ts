@@ -224,7 +224,20 @@ export function deleteMeeting(id: string) {
   if (kbPath) fs.rmSync(kbPath, { force: true })
 }
 
-export const summaryPrompt = (m: Meeting) =>
-  `Summarize the meeting "${m.title}" (${new Date(m.startedAt).toLocaleString()}). Transcript (Me = Rafael, Them = the other side): ${m.kbPath ?? m.transcriptPath}
+const meetingRef = (m: Meeting) => `the meeting "${m.title}" (${new Date(m.startedAt).toLocaleString()}). Transcript (Me = Rafael, Them = the other side): ${m.kbPath ?? m.transcriptPath}`
 
-Write a KB page meetings/${m.id.slice(0, 10)}-summary.md with: title, date, who (if inferable), 5-line summary, decisions, action items (owner + due date if mentioned), open questions. Link the transcript file. Add a "## Meetings" section to README.md if missing and list the summary there. Commit. Then reply with the summary and, as suggestions only, any board tasks worth creating. Do not create tasks or message anyone unless asked.`
+/** Chat-only summary. No files touched. */
+export const summaryPrompt = (m: Meeting) =>
+  `Summarize ${meetingRef(m)}
+
+Read the transcript and reply with: a 5-line summary, decisions, action items (owner + due date if mentioned), open questions. As suggestions only, list board tasks worth creating. Do not write any files, create tasks, or message anyone.`
+
+/** Fold durable knowledge from the meeting into the knowledge base. */
+export const kbPrompt = (m: Meeting) =>
+  `Add ${meetingRef(m)} to the knowledge base.
+
+1. Read the transcript.
+2. Write meetings/${m.id.slice(0, 10)}-summary.md: title, date, who (if inferable), 5-line summary, decisions, action items, open questions, link to the transcript file.
+3. Extract durable facts (decisions, conventions, how-things-work, deadlines that matter) and put each in the right existing page: projects/<repo>.md, architecture.md, practices.md, or decisions/YYYY-MM-DD-<slug>.md for decisions with a why. Replace stale lines rather than duplicating. Skip chit-chat and task status.
+4. Add a "## Meetings" section to README.md if missing and list the summary page there. Commit.
+5. Reply with a short list of what you changed. Do not create tasks or message anyone.`

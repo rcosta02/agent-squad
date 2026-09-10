@@ -192,7 +192,7 @@ export type Api = {
   meetingCurrent(): Promise<Meeting | null>
   meetingList(workspaceId: string): Promise<Meeting[]> // newest first
   meetingRead(id: string): Promise<string> // transcript markdown
-  meetingSummarize(id: string, agentId: string): Promise<void> // explicit: ask an agent to summarize into the KB
+  meetingSummarize(id: string, agentId: string, mode: 'chat' | 'kb'): Promise<void> // explicit: chat summary, or fold into the knowledge base
   meetingDelete(id: string): Promise<void>
   pickFolder(): Promise<string | null>
   pickImage(): Promise<string | null> // data URL of the chosen image file
