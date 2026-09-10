@@ -189,6 +189,8 @@ export type Api = {
   mcpAuthDone(): Promise<void> // cancel a running login
   mcpAuthInput(text: string): Promise<void> // answer a prompt of the running login (e.g. paste the redirect URL)
   openExternal(url: string): Promise<void>
+  dictate(wavBase64: string): Promise<string> // 16 kHz mono 16-bit WAV → text via whisper
+  micAccess(): Promise<boolean>
   meetingStart(workspaceId: string, title: string): Promise<Meeting>
   meetingStop(): Promise<Meeting | null> // stops and finishes transcription; nothing else happens
   meetingCurrent(): Promise<Meeting | null>

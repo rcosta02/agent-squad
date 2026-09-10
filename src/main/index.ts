@@ -1,4 +1,4 @@
-import { app, BrowserWindow, clipboard, dialog, ipcMain, shell } from 'electron'
+import { app, BrowserWindow, clipboard, dialog, ipcMain, shell, systemPreferences } from 'electron'
 import { execSync } from 'node:child_process'
 import fs from 'node:fs'
 import path from 'node:path'
@@ -6,7 +6,7 @@ import type { Event } from '../shared/types'
 import { Sessions } from './sessions'
 import { kbDelete, kbList, kbRead, kbWrite } from './kb'
 import * as mcp from './mcp'
-import { Recorder, addToKb, deleteMeeting, listMeetings, readMeeting, readSummary, renameMeeting, summarizeInline } from './meetings'
+import { Recorder, addToKb, dictate, deleteMeeting, listMeetings, readMeeting, readSummary, renameMeeting, summarizeInline } from './meetings'
 
 // GUI apps on macOS get a bare PATH; pull the user's shell PATH so `claude`, node, MCP servers resolve.
 try {
@@ -111,6 +111,8 @@ ipcMain.handle('meeting:kb', (_, id) => {
   return addToKb(id, kb)
 })
 ipcMain.handle('meeting:rename', (_, id, title) => renameMeeting(id, title))
+ipcMain.handle('dictate', (_, wav) => dictate(wav))
+ipcMain.handle('mic:access', () => systemPreferences.askForMediaAccess('microphone'))
 ipcMain.handle('shell:open', (_, url) => shell.openExternal(String(url)))
 ipcMain.handle('clipboard:write', (_, text) => clipboard.writeText(String(text)))
 ipcMain.handle('dialog:folder', async () => {

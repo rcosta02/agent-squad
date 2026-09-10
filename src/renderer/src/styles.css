@@ -46,8 +46,9 @@ input, textarea { font: inherit; color: inherit; }
 }
 .icon-btn {
   -webkit-app-region: no-drag;
-  width: 28px;
-  height: 28px;
+  width: 30px;
+  height: 30px;
+  font-size: 18px;
   border-radius: 8px;
   display: inline-flex;
   align-items: center;
@@ -835,3 +836,8 @@ section.plan-card ul { margin: 0 0 8px; padding-left: 20px; }
 .rail-nav .rail-badge { top: 2px; right: 2px; }
 .rail-footer .initials { margin-top: 6px; }
 .rail-mic { display: none; }
+
+.round-btn.dictate { background: none; color: var(--muted); }
+.round-btn.dictate:hover { color: var(--text); background: #3a3a3c; }
+.round-btn.dictate.rec { color: #fff; background: #ff375f; animation: fade 1.4s ease-in-out infinite; }
+.round-btn.dictate.busy { color: var(--muted); opacity: 0.6; }

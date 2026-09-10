@@ -174,7 +174,7 @@ export function wavRms(file: string): number {
 const SILENCE_RMS = 40
 
 /** whisper-cli → segments with seconds offsets. Skips near-silent files fast. */
-function transcribe(file: string): Promise<{ t: number; text: string }[]> {
+export function transcribe(file: string): Promise<{ t: number; text: string }[]> {
   return new Promise((resolve, reject) => {
     const st = fs.statSync(file)
     if (st.size < 19200) return resolve([]) // < 0.6s of audio: whisper hallucinates on stubs
@@ -313,4 +313,18 @@ export function renameMeeting(id: string, title: string) {
   fs.writeFileSync(path.join(dir, 'meeting.json'), JSON.stringify(meta, null, 2))
   for (const f of [meta.transcriptPath, meta.kbPath]) if (f && fs.existsSync(f)) fs.writeFileSync(f, fs.readFileSync(f, 'utf8').replace(/^# .*$/m, `# ${meta.title}`))
   return meta
+}
+
+/** Dictation: a WAV (16 kHz mono 16-bit) from the composer → text. */
+export async function dictate(wavBase64: string): Promise<string> {
+  const dir = path.join(home(), 'dictation')
+  fs.mkdirSync(dir, { recursive: true })
+  const f = path.join(dir, `${Date.now()}.wav`)
+  fs.writeFileSync(f, Buffer.from(wavBase64, 'base64'))
+  try {
+    return (await transcribe(f)).map((s) => s.text).join(' ').trim()
+  } finally {
+    fs.rmSync(f, { force: true })
+    fs.rmSync(f.replace(/\.wav$/, '.json'), { force: true })
+  }
 }

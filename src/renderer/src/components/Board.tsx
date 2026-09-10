@@ -214,7 +214,9 @@ function Drawer({ task, agents, running, nameOf, onClose }: { task: Task; agents
         <span className="hint">created {formatTime(task.createdAt)} by {nameOf(task.createdBy) || 'agent'}</span>
         <span style={{ flex: 1 }} />
         <button className="icon-btn" onClick={onClose} title="Close">
-          ×
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+            <path d="M6 6l12 12M18 6L6 18" />
+          </svg>
         </button>
       </div>
       <input ref={titleRef} className="drawer-title" value={title} onChange={(e) => setTitle(e.target.value)} onBlur={() => title.trim() && title !== task.title && patch({ title: title.trim() })} onKeyDown={(e) => e.key === 'Enter' && titleRef.current?.blur()} />
