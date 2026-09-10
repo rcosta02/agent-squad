@@ -18,6 +18,7 @@ type Props = {
 export default function Rail({ workspaces, currentId, unread, onSwitch, onNew, onMeeting, onBoard, onChat, view, recording, boardUnread }: Props) {
   return (
     <nav className="rail">
+      <div className="rail-top" />
       <div className="rail-list">
         {workspaces.map((w) => (
           <button
