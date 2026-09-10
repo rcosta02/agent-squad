@@ -67,9 +67,13 @@ export default function Composer({ agentName, agentId, running, pending, onClear
     src.connect(an)
     const data = new Uint8Array(an.frequencyBinCount)
     let raf = 0
+    void ctx.resume()
     const tick = () => {
       const c = waveRef.current
-      if (!c) return
+      if (!c) {
+        raf = requestAnimationFrame(tick) // canvas not mounted yet
+        return
+      }
       const g = c.getContext('2d')!
       an.getByteFrequencyData(data)
       const w = c.width, h = c.height, bars = 48, gap = 3, bw = (w - gap * (bars - 1)) / bars
