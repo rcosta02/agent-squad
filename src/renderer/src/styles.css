@@ -840,7 +840,8 @@ section.plan-card ul { margin: 0 0 8px; padding-left: 20px; }
 .round-btn.dictate { background: #3a3a3c; color: var(--text); margin-right: -2px; }
 .round-btn.dictate svg { width: 16px; height: 16px; }
 .round-btn.dictate:hover { background: #48484a; }
-.wave { height: 22px; width: 120px; align-self: center; margin: 0 2px; }
-.wave-txt { font-size: 12px; color: var(--muted); align-self: center; margin-right: 4px; }
+.wave-slot { flex: 1; min-width: 0; display: flex; align-items: center; height: 30px; padding: 0 6px; }
+.wave { width: 100%; height: 24px; }
+.wave-txt { font-size: 13px; color: var(--muted); }
 .round-btn.dictate.rec { color: #fff; background: #ff375f; animation: fade 1.4s ease-in-out infinite; }
 .round-btn.dictate.busy { color: var(--muted); opacity: 0.6; }

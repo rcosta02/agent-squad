@@ -72,7 +72,7 @@ export default function Composer({ agentName, agentId, running, pending, onClear
       if (!c) return
       const g = c.getContext('2d')!
       an.getByteFrequencyData(data)
-      const w = c.width, h = c.height, bars = 18, gap = 2, bw = (w - gap * (bars - 1)) / bars
+      const w = c.width, h = c.height, bars = 48, gap = 3, bw = (w - gap * (bars - 1)) / bars
       g.clearRect(0, 0, w, h)
       g.fillStyle = '#ff375f'
       for (let i = 0; i < bars; i++) {
@@ -234,7 +234,13 @@ export default function Composer({ agentName, agentId, running, pending, onClear
             <path d="M8 3v10M3 8h10" />
           </svg>
         </button>
+        {dictating !== 'idle' && (
+          <div className="wave-slot">
+            {dictating === 'rec' ? <canvas ref={waveRef} className="wave" width={600} height={24} /> : <span className="wave-txt">Transcribing…</span>}
+          </div>
+        )}
         <textarea
+          hidden={dictating !== 'idle'}
           ref={ref}
           rows={1}
           value={text}
@@ -248,8 +254,6 @@ export default function Composer({ agentName, agentId, running, pending, onClear
             📋 Plan
           </button>
         )}
-        {dictating === 'rec' && <canvas ref={waveRef} className="wave" width={120} height={22} />}
-        {dictating === 'busy' && <span className="wave-txt">Transcribing…</span>}
         <button className={'round-btn dictate ' + dictating} title={dictating === 'rec' ? 'Stop and transcribe' : dictating === 'busy' ? 'Transcribing…' : 'Dictate (whisper, local)'} type="button" onClick={toggleDictation} disabled={dictating === 'busy'}>
           {dictating === 'rec' ? (
             <svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor">
