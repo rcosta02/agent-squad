@@ -72,9 +72,9 @@ export default function NewAgentModal({ initial, onClose, onSubmit, onDelete }: 
               <button type="button" className="emoji-btn" style={{ background: color }} onClick={() => setEmojiOpen((v) => !v)} title="Choose emoji">
                 {emoji || '?'}
               </button>
-              {emojiOpen && <EmojiPicker value={emoji} onPick={setEmoji} onClose={() => setEmojiOpen(false)} />}
             </div>
           </div>
+        {emojiOpen && <EmojiPicker value={emoji} onPick={setEmoji} onClose={() => setEmojiOpen(false)} />}
         </div>
 
         <div className="field">

@@ -849,11 +849,11 @@ section.plan-card ul { margin: 0 0 8px; padding-left: 20px; }
 /* ---------- emoji picker + color ---------- */
 .emoji-field { position: relative; }
 .emoji-btn { width: 44px; height: 38px; border-radius: 10px; border: 1px solid var(--border); font-size: 22px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
-.emoji-pop { position: absolute; z-index: 40; top: 44px; left: 0; width: 340px; background: #2c2c2e; border: 1px solid #3a3a3c; border-radius: 12px; box-shadow: 0 12px 32px rgba(0,0,0,0.5); padding: 8px; }
+.emoji-pop { width: 100%; background: #232325; border: 1px solid #3a3a3c; border-radius: 12px; padding: 8px; }
 .emoji-cats { display: flex; gap: 2px; margin-bottom: 6px; border-bottom: 1px solid #3a3a3c; padding-bottom: 6px; }
 .emoji-cat { flex: 1; border: 0; background: none; font-size: 18px; padding: 4px 0; border-radius: 6px; cursor: pointer; opacity: 0.55; }
 .emoji-cat.on, .emoji-cat:hover { opacity: 1; background: #3a3a3c; }
-.emoji-grid { display: grid; grid-template-columns: repeat(9, 1fr); gap: 2px; max-height: 240px; overflow-y: auto; }
+.emoji-grid { display: grid; grid-template-columns: repeat(12, 1fr); gap: 2px; max-height: 200px; overflow-y: auto; }
 .emoji-cell { border: 0; background: none; font-size: 21px; line-height: 1; padding: 4px 0; border-radius: 6px; cursor: pointer; }
 .emoji-cell:hover { background: #3a3a3c; }
 .emoji-cell.on { background: var(--blue); }
