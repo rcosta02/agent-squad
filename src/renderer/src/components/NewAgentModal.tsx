@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import type { Agent } from '../../../shared/types'
 import { COLORS, randomEmoji } from '../lib'
+import EmojiPicker from './EmojiPicker'
 
 const MODELS: [string, string][] = [
   ['claude-fable-5-1', 'Fable 5.1'],
@@ -26,6 +27,7 @@ type Props = {
 export default function NewAgentModal({ initial, onClose, onSubmit, onDelete }: Props) {
   const [name, setName] = useState(initial?.name ?? '')
   const [emoji, setEmoji] = useState(initial?.emoji ?? randomEmoji())
+  const [pick, setPick] = useState(false)
   const [color, setColor] = useState(initial?.color ?? COLORS[Math.floor(Math.random() * COLORS.length)])
   const [cwd, setCwd] = useState(initial?.cwd ?? '')
   const [autonomous, setAutonomous] = useState(initial?.autonomous ?? false)
@@ -66,13 +68,22 @@ export default function NewAgentModal({ initial, onClose, onSubmit, onDelete }: 
           </div>
           <div className="field narrow">
             <label>Emoji</label>
-            <input type="text" value={emoji} onChange={(e) => setEmoji(e.target.value)} style={{ textAlign: 'center' }} />
+            <div className="emoji-field">
+              <button type="button" className="emoji-btn" style={{ background: color }} onClick={() => setPick((v) => !v)} title="Choose emoji">
+                {emoji || '?'}
+              </button>
+              {pick && <EmojiPicker value={emoji} onPick={setEmoji} onClose={() => setPick(false)} />}
+            </div>
           </div>
         </div>
 
         <div className="field">
           <label>Color</label>
           <div className="swatches">
+            <label className="swatch custom" style={{ background: color }} title="Custom color">
+              <input type="color" value={/^#[0-9a-f]{6}$/i.test(color) ? color : '#5ac8fa'} onChange={(e) => setColor(e.target.value)} />
+              <span>+</span>
+            </label>
             {COLORS.map((c) => (
               <button
                 key={c}
