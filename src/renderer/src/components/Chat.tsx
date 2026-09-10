@@ -1,4 +1,5 @@
 import { Fragment, useCallback, useLayoutEffect, useRef, useState, type DragEvent, type ReactNode } from 'react'
+import { IClock, IPlan, IPlug, ISession, IStop } from './Icons'
 import { formatTime } from '../lib'
 import type { Agent, Msg } from '../../../shared/types'
 import type { AssistantMsg, ResultMsg, ToolMsg, UserMsg } from '../lib'
@@ -165,7 +166,7 @@ function UserBubble({ msg }: { msg: UserMsg }) {
   return (
     <div className="msg-row user">
       <div className="bubble user">
-        {msg.routine && <div className="routine-tag">⏰ {msg.routine}</div>}
+        {msg.routine && <div className="routine-tag"><IClock /> {msg.routine}</div>}
         {msg.group && <div className="routine-tag"># general</div>}
         {msg.images && msg.images.length > 0 && (
           <div className="bubble-images">
@@ -287,7 +288,7 @@ export default function Chat({ agent, msgs, running, onSend, onStop, onEdit, onN
           items.push(
             <div key={m.id} className="msg-row">
               <button className={'plan-card ' + m.status} onClick={() => onOpenPlan(m.planId)}>
-                <span className="plan-ico">📋</span>
+                <span className="plan-ico"><IPlan /></span>
                 <span className="plan-title">{m.title}</span>
                 {m.revision && m.revision > 1 && <span className="hint">rev {m.revision}</span>}
                 {m.progress && (
@@ -336,7 +337,7 @@ export default function Chat({ agent, msgs, running, onSend, onStop, onEdit, onN
         )}
         {running && (
           <button className="stop-btn" onClick={onStop}>
-            ■ Stop
+            <IStop /> Stop
           </button>
         )}
         <div className="menu-wrap">
@@ -356,7 +357,7 @@ export default function Chat({ agent, msgs, running, onSend, onStop, onEdit, onN
                     onNewSession()
                   }}
                 >
-                  ＋ New session
+                  <ISession /> New session
                 </button>
                 <button
                   className="menu-item"
@@ -365,7 +366,7 @@ export default function Chat({ agent, msgs, running, onSend, onStop, onEdit, onN
                     setMcpOpen(true)
                   }}
                 >
-                  🔌 MCP servers{agent.mcp ? ` (${agent.mcp.filter((s) => s.status === 'connected').length}/${agent.mcp.length})` : ''}
+                  <IPlug /> MCP servers{agent.mcp ? ` (${agent.mcp.filter((s) => s.status === 'connected').length}/${agent.mcp.length})` : ''}
                 </button>
                 <button
                   className="menu-item"
@@ -374,7 +375,7 @@ export default function Chat({ agent, msgs, running, onSend, onStop, onEdit, onN
                     onRoutines()
                   }}
                 >
-                  ⏰ Routines{routineCount ? ` (${routineCount})` : ''}
+                  <IClock /> Routines{routineCount ? ` (${routineCount})` : ''}
                 </button>
                 {(agent.sessions ?? []).length > 0 && <div className="menu-label">Previous sessions</div>}
                 {[...(agent.sessions ?? [])].reverse().map((s) => (

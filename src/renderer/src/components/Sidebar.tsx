@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { IBook, IGear, IPlus } from './Icons'
 import type { Agent, Workspace } from '../../../shared/types'
 import { formatTime } from '../lib'
 import Avatar from './Avatar'
@@ -46,7 +47,7 @@ export default function Sidebar({ workspace, onNewWorkspace, onEditWorkspace, on
                     onEditWorkspace()
                   }}
                 >
-                  ⚙︎ Edit workspace
+                  <IGear /> Edit workspace
                 </button>
                 <button
                   className="menu-item"
@@ -55,7 +56,7 @@ export default function Sidebar({ workspace, onNewWorkspace, onEditWorkspace, on
                     onOpenKb()
                   }}
                 >
-                  📚 Knowledge base
+                  <IBook /> Knowledge base
                 </button>
                 <button
                   className="menu-item"
@@ -64,7 +65,7 @@ export default function Sidebar({ workspace, onNewWorkspace, onEditWorkspace, on
                     onNewWorkspace()
                   }}
                 >
-                  ＋ New workspace
+                  <IPlus /> New workspace
                 </button>
               </div>
             </>

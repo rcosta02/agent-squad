@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type DragEvent } from 'react'
+import { IComment, IPlay, IPlus } from './Icons'
 import type { Agent, Task, TaskPriority, TaskStatus, Workspace } from '../../../shared/types'
 import { formatTime } from '../lib'
 import Avatar from './Avatar'
@@ -119,7 +120,7 @@ export default function Board({ workspace, agents, tasks, running, onBack }: Pro
                 <span className="col-title">{c.label}</span>
                 <span className="col-count">{list.length}</span>
                 <button className="icon-btn col-add" title="Add task" onClick={() => (setAdding(c.id), setNewTitle(''))}>
-                  ＋
+                  <IPlus />
                 </button>
               </div>
               <div className="col-body">
@@ -139,7 +140,7 @@ export default function Board({ workspace, agents, tasks, running, onBack }: Pro
                         <div className="task-title">{t.title}</div>
                         <div className="task-foot">
                           {t.priority !== 'normal' && <span className={'prio ' + t.priority}>{t.priority}</span>}
-                          {t.comments.length > 0 && <span className="task-meta">💬 {t.comments.length}</span>}
+                          {t.comments.length > 0 && <span className="task-meta"><IComment /> {t.comments.length}</span>}
                           <span style={{ flex: 1 }} />
                           {a ? <Avatar agent={a} size={20} running={running.has(a.id)} /> : t.assignee === 'me' ? <span className="initials tiny">RC</span> : null}
                         </div>
@@ -163,7 +164,7 @@ export default function Board({ workspace, agents, tasks, running, onBack }: Pro
                   />
                 ) : (
                   <button className="quick-add-btn" onClick={() => (setAdding(c.id), setNewTitle(''))}>
-                    ＋ Add task
+                    <IPlus /> Add task
                   </button>
                 )}
               </div>
@@ -269,7 +270,7 @@ function Drawer({ task, agents, running, nameOf, onClose }: { task: Task; agents
           <span>{assignee.name}</span>
           <span style={{ flex: 1 }} />
           <button className="btn small primary" onClick={ask} disabled={asked} title="Send this task to the agent as a message. Nothing happens otherwise.">
-            {asked ? 'Sent ✓' : '▶ Ask agent to work on it'}
+            {asked ? 'Sent ✓' : <><IPlay /> Ask agent to work on it</>}
           </button>
         </div>
       )}

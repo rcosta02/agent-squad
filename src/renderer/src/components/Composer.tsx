@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type ClipboardEvent, type KeyboardEvent } from 'react'
+import { IPlan } from './Icons'
 
 type Props = {
   agentName: string
@@ -255,7 +256,7 @@ export default function Composer({ agentName, agentId, running, pending, onClear
         />
         {allowPlan && (
           <button className={'plan-toggle' + (planMode ? ' on' : '')} title="Plan mode: agent only reads and proposes a plan you approve" type="button" onClick={() => setPlanMode((v) => !v)}>
-            📋 Plan
+            <IPlan /> Plan
           </button>
         )}
         <button className={'round-btn dictate ' + dictating} title={dictating === 'rec' ? 'Stop and transcribe' : dictating === 'busy' ? 'Transcribing…' : 'Dictate (whisper, local)'} type="button" onClick={toggleDictation} disabled={dictating === 'busy'}>

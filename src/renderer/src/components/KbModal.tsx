@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react'
+import { IPlus } from './Icons'
 import MdEditor from './MdEditor'
 import type { Workspace } from '../../../shared/types'
 
@@ -80,7 +81,7 @@ export default function KbModal({ workspace, onClose }: Props) {
           <div className="kb-side-head">
             <span>{workspace.name} KB</span>
             <button className="icon-btn" title="New page" onClick={() => setNewPath(newPath === null ? 'runbooks/' : null)}>
-              ＋
+              <IPlus />
             </button>
           </div>
           {newPath !== null && (

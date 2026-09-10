@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { IPencil, IRecord, IStop } from './Icons'
 import type { Agent, Meeting, Workspace } from '../../../shared/types'
 import { formatTime } from '../lib'
 import { Markdown } from './Chat'
@@ -111,7 +112,7 @@ export default function MeetingView({ workspace, agents, meeting, onBack, onOpen
             <span className="hint">{live.title}</span>
             <span style={{ flex: 1 }} />
             <button className="btn primary" disabled={stopping || live.status !== 'recording'} onClick={stop}>
-              {stopping ? 'Stopping…' : '■ Stop'}
+              {stopping ? 'Stopping…' : <><IStop /> Stop</>}
             </button>
           </footer>
         </>
@@ -122,7 +123,7 @@ export default function MeetingView({ workspace, agents, meeting, onBack, onOpen
               <div className="drawer-label">New meeting</div>
               <input type="text" value={title} autoFocus placeholder="Title, e.g. Weekly sync with David" onChange={(e) => setTitle(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && title.trim() && start()} />
               <button className="btn primary rec-start" onClick={start} disabled={!title.trim() || (!!meeting && meeting.status !== 'done')} title={title.trim() ? '' : 'Give the meeting a title first'}>
-                ● Record{title.trim() ? ` “${title.trim().slice(0, 24)}${title.trim().length > 24 ? '…' : ''}”` : ''}
+                <IRecord /> Record{title.trim() ? ` “${title.trim().slice(0, 24)}${title.trim().length > 24 ? '…' : ''}”` : ''}
               </button>
               {error && <div className="error-text">{error}</div>}
             </div>
@@ -166,7 +167,7 @@ export default function MeetingView({ workspace, agents, meeting, onBack, onOpen
                     />
                   ) : (
                     <button className="meeting-title-btn" title="Rename" onClick={() => setRenaming(opened.title)}>
-                      {opened.title} ✎
+                      {opened.title} <IPencil />
                     </button>
                   )}
                   <span style={{ flex: 1 }} />

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { IPlus } from './Icons'
 import type { Agent, McpServerInfo } from '../../../shared/types'
 
 type Props = { agent: Agent; onClose: () => void }
@@ -172,7 +173,7 @@ export default function McpModal({ agent, onClose }: Props) {
             <div className="hint">Changes apply on the agent's next turn. Status and tools come from the last session start.</div>
             <div className="modal-actions">
               <button className="btn" onClick={() => setAdding(true)}>
-                ＋ Add server
+                <IPlus /> Add server
               </button>
               <span style={{ flex: 1 }} />
               <button className="btn primary" onClick={onClose}>

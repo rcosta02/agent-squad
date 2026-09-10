@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { IPlay, IPlus } from './Icons'
 import type { Agent, Routine } from '../../../shared/types'
 import { formatTime } from '../lib'
 
@@ -72,7 +73,7 @@ export default function RoutinesModal({ agent, routines, onClose }: Props) {
             </div>
             <div className="routine-actions">
               <button className="btn small" onClick={() => api.runRoutine(r.id)} title="Run now">
-                ▶
+                <IPlay />
               </button>
               {r.status === 'active' && (
                 <button className="btn small" onClick={() => api.updateRoutine(r.id, { status: 'paused' })}>
@@ -144,7 +145,7 @@ export default function RoutinesModal({ agent, routines, onClose }: Props) {
         ) : (
           <div className="modal-actions">
             <button className="btn" onClick={() => setAdding(true)}>
-              ＋ New routine
+              <IPlus /> New routine
             </button>
             <span style={{ flex: 1 }} />
             <button className="btn primary" onClick={onClose}>
