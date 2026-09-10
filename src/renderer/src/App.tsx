@@ -332,8 +332,9 @@ export default function App() {
       <main className="chat-pane">
         {openPlan ? (
           <PlanView planId={openPlan} onBack={() => setOpenPlan(null)} />
-        ) : showMeeting ? (
+        ) : showMeeting && workspace ? (
           <MeetingView
+            workspace={workspace}
             agents={sorted}
             meeting={meeting}
             onBack={() => setShowMeeting(false)}

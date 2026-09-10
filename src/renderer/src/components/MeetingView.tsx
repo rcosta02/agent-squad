@@ -1,39 +1,59 @@
 import { useEffect, useRef, useState } from 'react'
-import type { Agent, Meeting } from '../../../shared/types'
+import type { Agent, Meeting, Workspace } from '../../../shared/types'
+import { formatTime } from '../lib'
+import { Markdown } from './Chat'
 
 type Props = {
+  workspace: Workspace
   agents: Agent[]
-  meeting: Meeting | null
+  meeting: Meeting | null // the live one (any workspace)
   onBack: () => void
   onOpenAgent: (agentId: string) => void
 }
 
 const fmt = (s: number) => `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(Math.floor(s % 60)).padStart(2, '0')}`
 
-export default function MeetingView({ agents, meeting, onBack, onOpenAgent }: Props) {
+export default function MeetingView({ workspace, agents, meeting, onBack, onOpenAgent }: Props) {
   const api = window.api
   const [title, setTitle] = useState('')
-  const [agentId, setAgentId] = useState(agents.find((a) => /secretary|notes|meeting/i.test(a.name))?.id ?? agents[0]?.id ?? '')
   const [error, setError] = useState('')
   const [now, setNow] = useState(Date.now())
   const [stopping, setStopping] = useState(false)
+  const [list, setList] = useState<Meeting[]>([])
+  const [openId, setOpenId] = useState<string | null>(null)
+  const [text, setText] = useState('')
+  const [sumAgent, setSumAgent] = useState(agents.find((a) => /secretary|notes|meeting/i.test(a.name))?.id ?? agents[0]?.id ?? '')
+  const [sent, setSent] = useState(false)
+  const [confirm, setConfirm] = useState(false)
   const listRef = useRef<HTMLDivElement>(null)
 
-  const recording = meeting?.status === 'recording'
+  const live = meeting && meeting.workspaceId === workspace.id && meeting.status !== 'done' ? meeting : null
+  const refresh = () => api.meetingList(workspace.id).then(setList)
   useEffect(() => {
-    if (!recording) return
+    void refresh()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [workspace.id, meeting?.status])
+  useEffect(() => {
+    if (!live) return
     const t = setInterval(() => setNow(Date.now()), 1000)
     return () => clearInterval(t)
-  }, [recording])
+  }, [live])
   useEffect(() => {
     const el = listRef.current
     if (el) el.scrollTop = el.scrollHeight
-  }, [meeting?.segments.length])
+  }, [live?.segments.length])
+  useEffect(() => {
+    if (!openId) return
+    setSent(false)
+    setConfirm(false)
+    api.meetingRead(openId).then(setText)
+  }, [openId, api])
 
   const start = async () => {
     setError('')
     try {
-      await api.meetingStart(agentId, title.trim() || `Meeting ${new Date().toLocaleString()}`)
+      await api.meetingStart(workspace.id, title.trim() || `Meeting ${new Date().toLocaleString()}`)
+      setTitle('')
     } catch (e) {
       setError(String((e as Error).message).replace(/^.*Error: /, ''))
     }
@@ -42,10 +62,10 @@ export default function MeetingView({ agents, meeting, onBack, onOpenAgent }: Pr
     setStopping(true)
     await api.meetingStop()
     setStopping(false)
+    void refresh()
   }
-
-  const agent = agents.find((a) => a.id === meeting?.agentId)
-  const elapsed = meeting ? ((meeting.endedAt ?? now) - meeting.startedAt) / 1000 : 0
+  const elapsed = live ? (now - live.startedAt) / 1000 : 0
+  const opened = list.find((m) => m.id === openId)
 
   return (
     <div className="board meeting">
@@ -53,74 +73,104 @@ export default function MeetingView({ agents, meeting, onBack, onOpenAgent }: Pr
         <button className="btn small back-btn" onClick={onBack}>
           ← Conversations
         </button>
-        <span className="name">Note taker</span>
-        {meeting && (
-          <span className={'rec-badge ' + meeting.status}>
+        <span className="name">{workspace.name} · Meetings</span>
+        {live && (
+          <span className={'rec-badge ' + live.status}>
             <span className="rec-dot" />
-            {meeting.status === 'recording' ? 'Recording' : meeting.status === 'stopping' ? 'Finishing transcript…' : meeting.status === 'summarizing' ? 'Summarizing' : 'Done'} · {fmt(elapsed)}
+            {live.status === 'recording' ? 'Recording' : 'Finishing transcript…'} · {fmt(elapsed)}
           </span>
         )}
       </header>
 
-      {!meeting || meeting.status === 'done' || meeting.status === 'summarizing' ? (
-        <div className="meeting-setup">
-          {meeting && (
-            <div className="meeting-done">
-              <div>
-                <b>{meeting.title}</b> · {meeting.segments.length} segments · transcript saved.
-              </div>
-              {meeting.status === 'summarizing' && agent && (
-                <div>
-                  {agent.name} is writing the summary and proposing follow-ups.{' '}
-                  <button className="note-btn" onClick={() => onOpenAgent(agent.id)}>
-                    Open chat →
-                  </button>
-                </div>
-              )}
-            </div>
-          )}
-          <div className="field">
-            <label>Meeting title</label>
-            <input type="text" value={title} placeholder="e.g. Weekly sync with David" onChange={(e) => setTitle(e.target.value)} />
-          </div>
-          <div className="field">
-            <label>Summarize with</label>
-            <select value={agentId} onChange={(e) => setAgentId(e.target.value)}>
-              {agents.map((a) => (
-                <option key={a.id} value={a.id}>
-                  {a.emoji} {a.name}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div className="hint">Records your microphone and everything you hear (calls, videos). Transcribed locally with whisper.cpp. Nothing leaves this Mac until the agent summarizes. First run asks for Microphone and System Audio Recording permission.</div>
-          {error && <div className="error-text">{error}</div>}
-          <button className="btn primary rec-start" disabled={!agentId} onClick={start}>
-            ● Start recording
-          </button>
-        </div>
-      ) : (
+      {live ? (
         <>
           <div className="transcript" ref={listRef}>
-            {meeting.segments.length === 0 && <div className="hint">Listening… text appears a few seconds after each pause.</div>}
-            {meeting.segments.map((s, i) => (
+            {live.segments.length === 0 && <div className="hint">Listening… text appears a few seconds after each pause.</div>}
+            {live.segments.map((s, i) => (
               <div key={i} className={'seg ' + s.who}>
                 <span className="seg-t">{fmt(s.t)}</span>
                 <span className="seg-who">{s.who === 'Me' ? 'You' : 'Them'}</span>
                 <span className="seg-text">{s.text}</span>
               </div>
             ))}
-            {meeting.pendingChunks > 0 && <div className="hint">Transcribing {meeting.pendingChunks} chunk{meeting.pendingChunks > 1 ? 's' : ''}…</div>}
-            {meeting.error && <div className="error-text">{meeting.error}</div>}
+            {live.pendingChunks > 0 && <div className="hint">Transcribing…</div>}
+            {live.error && <div className="error-text">{live.error}</div>}
           </div>
           <footer className="plan-footer">
-            <span className="hint">{meeting.title} · summary by {agent?.name}</span>
+            <span className="hint">{live.title}</span>
             <span style={{ flex: 1 }} />
-            <button className="btn primary" disabled={stopping || meeting.status !== 'recording'} onClick={stop}>
-              {stopping ? 'Stopping…' : '■ Stop & summarize'}
+            <button className="btn primary" disabled={stopping || live.status !== 'recording'} onClick={stop}>
+              {stopping ? 'Stopping…' : '■ Stop'}
             </button>
           </footer>
         </>
+      ) : (
+        <div className="meetings-layout">
+          <aside className="meetings-side">
+            <div className="meeting-new">
+              <input type="text" value={title} placeholder="Meeting title" onChange={(e) => setTitle(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && start()} />
+              <button className="btn primary rec-start" onClick={start} disabled={!!meeting && meeting.status !== 'done'}>
+                ● Record
+              </button>
+              {error && <div className="error-text">{error}</div>}
+            </div>
+            <div className="meetings-list">
+              {list.length === 0 && <div className="hint">No meetings yet.</div>}
+              {list.map((m) => (
+                <button key={m.id} className={'meeting-row' + (m.id === openId ? ' current' : '')} onClick={() => setOpenId(m.id)}>
+                  <div className="meeting-row-title">{m.title}</div>
+                  <div className="meeting-row-meta">
+                    {formatTime(m.startedAt)} · {fmt(((m.endedAt ?? m.startedAt) - m.startedAt) / 1000)}
+                  </div>
+                </button>
+              ))}
+            </div>
+            <div className="hint">Transcripts are saved in the workspace knowledge base under meetings/. Ask any agent about a meeting and it will grep them.</div>
+          </aside>
+          <section className="meeting-main">
+            {!opened ? (
+              <div className="empty">
+                <div>Select a meeting to read its transcript.</div>
+              </div>
+            ) : (
+              <>
+                <div className="meeting-toolbar">
+                  <span className="hint mono">{opened.kbPath?.split('/').slice(-2).join('/') ?? opened.id}</span>
+                  <span style={{ flex: 1 }} />
+                  <select className="rev-pick" value={sumAgent} onChange={(e) => setSumAgent(e.target.value)}>
+                    {agents.map((a) => (
+                      <option key={a.id} value={a.id}>
+                        {a.emoji} {a.name}
+                      </option>
+                    ))}
+                  </select>
+                  <button
+                    className="btn small primary"
+                    disabled={!sumAgent || sent}
+                    title="Ask this agent to write a summary page in the KB. Nothing happens otherwise."
+                    onClick={async () => {
+                      await api.meetingSummarize(opened.id, sumAgent)
+                      setSent(true)
+                    }}
+                  >
+                    {sent ? 'Sent ✓' : 'Summarize into KB'}
+                  </button>
+                  {sent && (
+                    <button className="note-btn" onClick={() => onOpenAgent(sumAgent)}>
+                      Open chat →
+                    </button>
+                  )}
+                  <button className="btn small danger" onClick={() => (confirm ? (api.meetingDelete(opened.id).then(refresh), setOpenId(null)) : setConfirm(true))}>
+                    {confirm ? 'Really delete?' : 'Delete'}
+                  </button>
+                </div>
+                <div className="meeting-doc">
+                  <Markdown text={text} />
+                </div>
+              </>
+            )}
+          </section>
+        </div>
       )}
     </div>
   )

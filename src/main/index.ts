@@ -6,7 +6,7 @@ import type { Event } from '../shared/types'
 import { Sessions } from './sessions'
 import { kbDelete, kbList, kbRead, kbWrite } from './kb'
 import * as mcp from './mcp'
-import { Recorder, summaryPrompt } from './meetings'
+import { Recorder, deleteMeeting, listMeetings, readMeeting, summaryPrompt } from './meetings'
 
 // GUI apps on macOS get a bare PATH; pull the user's shell PATH so `claude`, node, MCP servers resolve.
 try {
@@ -96,17 +96,17 @@ ipcMain.handle('mcp:authDone', () => {
   authCtl = null
 })
 ipcMain.handle('mcp:authInput', (_, text) => authCtl?.write(String(text)))
-ipcMain.handle('meeting:start', (_, agentId, title) => recorder.start(agentId, title))
-ipcMain.handle('meeting:stop', async () => {
-  const m = await recorder.stop()
-  if (m && m.status === 'done' && m.transcriptPath) {
-    m.status = 'summarizing'
-    emit({ type: 'meeting', meeting: m })
-    void sessions.send(m.agentId, summaryPrompt(m))
-  }
-  return m
-})
+ipcMain.handle('meeting:start', (_, wsId, title) => recorder.start(wsId, title, sessions.kbDirOf(wsId)))
+ipcMain.handle('meeting:stop', () => recorder.stop())
 ipcMain.handle('meeting:current', () => recorder.meeting)
+ipcMain.handle('meeting:list', (_, wsId) => listMeetings(wsId))
+ipcMain.handle('meeting:read', (_, id) => readMeeting(id))
+ipcMain.handle('meeting:delete', (_, id) => deleteMeeting(id))
+ipcMain.handle('meeting:summarize', (_, id, agentId) => {
+  const m = listMeetings(sessions.workspaceOfAgent(agentId)).find((x) => x.id === id)
+  if (!m) throw new Error('No such meeting')
+  return sessions.send(agentId, summaryPrompt(m))
+})
 ipcMain.handle('shell:open', (_, url) => shell.openExternal(String(url)))
 ipcMain.handle('clipboard:write', (_, text) => clipboard.writeText(String(text)))
 ipcMain.handle('dialog:folder', async () => {

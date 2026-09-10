@@ -134,6 +134,15 @@ export class Sessions {
     }
   }
 
+  kbDirOf(wsId: string) {
+    const w = this.workspaces.find((x) => x.id === wsId)
+    return w?.kbDir ? this.kbDir(w.id) : undefined
+  }
+
+  workspaceOfAgent(agentId: string) {
+    return this.get(agentId).workspaceId
+  }
+
   cwdOf(agentId: string) {
     return this.get(agentId).cwd
   }
@@ -677,7 +686,7 @@ export class Sessions {
     const append = [
       `You are the agent named "${agent.name}" inside a desktop app, workspace "${ws?.name ?? ''}". Other agents in this workspace: ${others.map((a) => a.name).join(', ') || 'none'}. To talk to them use ONLY the mcp__desk__message_agent tool (and mcp__desk__list_agents to list them). The built-in SendMessage/ListAgents tools cannot reach these agents. Replies come back later as user messages starting with "Message from <name>:". Mentions: "@Name" in any message refers to that agent; in the workspace #general group chat an @mention delivers the message to them. To reset your own context call mcp__desk__new_session. You share a kanban board with the user (mcp__desk__list_tasks / create_task / update_task). The board never starts work by itself: only act on a task when the user explicitly asks you to work on it. When you start one, move it to in_progress; when finished, move it to review with a summary comment; never move a task to done. After a plan is approved, call mcp__desk__update_plan_step as you finish each checklist step. To show the user a visual plan for review call mcp__desk__present_plan with markdown in this format: ${PLAN_FORMAT.replace(/\n/g, ' ')} For scheduled/recurring work use mcp__desk__create_routine (and list_routines / update_routine); the built-in CronCreate, CronList, CronDelete, RemoteTrigger and ScheduleWakeup tools do NOT work in this app.`,
       kb
-        ? `Shared knowledge base at ${kb} (markdown, shared by all agents in this workspace). Its index follows. Before working on a repo or answering how something runs or relates, read the relevant page (Read/Grep in that folder). When you learn a durable fact (how to run, gotcha, decision, convention), write it there and update the index; use the kb skill for the rules.\n\n<kb-index>\n${kbIndex}\n</kb-index>`
+        ? `Shared knowledge base at ${kb} (markdown, shared by all agents in this workspace). Its index follows. Meeting transcripts live in its meetings/ folder (not indexed): grep them when asked about a meeting. Before working on a repo or answering how something runs or relates, read the relevant page (Read/Grep in that folder). When you learn a durable fact (how to run, gotcha, decision, convention), write it there and update the index; use the kb skill for the rules.\n\n<kb-index>\n${kbIndex}\n</kb-index>`
         : '',
       agent.systemPrompt
     ]

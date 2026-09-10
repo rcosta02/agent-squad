@@ -64,12 +64,13 @@ export type McpServerInfo = { name: string; scope: 'user' | 'local' | 'project';
 export type MeetingSegment = { t: number; who: 'Me' | 'Them'; text: string } // t = seconds from start
 export type Meeting = {
   id: string
-  agentId: string // who summarizes
+  workspaceId: string
   title: string
-  dir: string
+  dir: string // raw audio + meeting.json
+  kbPath?: string // transcript copy inside the workspace KB (meetings/<id>-<slug>.md)
   startedAt: number
   endedAt?: number
-  status: 'recording' | 'stopping' | 'done' | 'summarizing'
+  status: 'recording' | 'stopping' | 'done'
   segments: MeetingSegment[]
   pendingChunks: number
   transcriptPath?: string
@@ -186,9 +187,13 @@ export type Api = {
   mcpAuthDone(): Promise<void> // cancel a running login
   mcpAuthInput(text: string): Promise<void> // answer a prompt of the running login (e.g. paste the redirect URL)
   openExternal(url: string): Promise<void>
-  meetingStart(agentId: string, title: string): Promise<Meeting>
-  meetingStop(): Promise<Meeting | null> // stops, finishes transcription, hands off to the agent
+  meetingStart(workspaceId: string, title: string): Promise<Meeting>
+  meetingStop(): Promise<Meeting | null> // stops and finishes transcription; nothing else happens
   meetingCurrent(): Promise<Meeting | null>
+  meetingList(workspaceId: string): Promise<Meeting[]> // newest first
+  meetingRead(id: string): Promise<string> // transcript markdown
+  meetingSummarize(id: string, agentId: string): Promise<void> // explicit: ask an agent to summarize into the KB
+  meetingDelete(id: string): Promise<void>
   pickFolder(): Promise<string | null>
   pickImage(): Promise<string | null> // data URL of the chosen image file
   pickImages(): Promise<string[]> // data URLs, multi-select

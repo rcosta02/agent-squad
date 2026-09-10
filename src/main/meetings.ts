@@ -1,4 +1,4 @@
-import { spawn, execFile, type ChildProcess } from 'node:child_process'
+import { spawn, execFile, execSync, type ChildProcess } from 'node:child_process'
 import fs from 'node:fs'
 import path from 'node:path'
 import { app } from 'electron'
@@ -19,6 +19,7 @@ export class Recorder {
   private child: ChildProcess | null = null
   private queue: Promise<void> = Promise.resolve()
   private stopResolve: (() => void) | null = null
+  private kbDir: string | undefined
 
   constructor(private emit: Emit) {}
 
@@ -28,13 +29,14 @@ export class Recorder {
     if (!fs.existsSync(modelPath())) throw new Error(`Whisper model missing at ${modelPath()}`)
   }
 
-  start(agentId: string, title: string) {
+  start(workspaceId: string, title: string, kbDir: string | undefined) {
     if (this.meeting && this.meeting.status === 'recording') throw new Error('Already recording')
     this.preflight()
     const id = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19)
     const dir = path.join(home(), 'meetings', id)
     fs.mkdirSync(dir, { recursive: true })
-    this.meeting = { id, agentId, title: title || 'Meeting', dir, startedAt: Date.now(), status: 'recording', segments: [], pendingChunks: 0 }
+    this.kbDir = kbDir
+    this.meeting = { id, workspaceId, title: title || 'Meeting', dir, startedAt: Date.now(), status: 'recording', segments: [], pendingChunks: 0 }
     this.save()
     const child = spawn(helperBin(), [dir, '12'], { stdio: ['ignore', 'pipe', 'pipe'] })
     this.child = child
@@ -115,10 +117,19 @@ export class Recorder {
   private finish() {
     const m = this.meeting
     if (!m) return
-    const fmt = (t: number) => `${String(Math.floor(t / 60)).padStart(2, '0')}:${String(Math.floor(t % 60)).padStart(2, '0')}`
-    const md = [`# ${m.title}`, ``, `Recorded ${new Date(m.startedAt).toLocaleString()} · ${fmt(((m.endedAt ?? Date.now()) - m.startedAt) / 1000)} · Me = Rafael, Them = the other side`, ``, ...m.segments.map((s) => `[${fmt(s.t)}] **${s.who}:** ${s.text}`)].join('\n')
     m.transcriptPath = path.join(m.dir, 'transcript.md')
-    fs.writeFileSync(m.transcriptPath, md)
+    fs.writeFileSync(m.transcriptPath, transcriptMd(m))
+    // Copy into the workspace KB so agents can grep it on request. Not indexed in README on purpose.
+    if (this.kbDir) {
+      const slug = m.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 40) || 'meeting'
+      const dir = path.join(this.kbDir, 'meetings')
+      fs.mkdirSync(dir, { recursive: true })
+      m.kbPath = path.join(dir, `${m.id.slice(0, 10)}-${slug}.md`)
+      fs.writeFileSync(m.kbPath, transcriptMd(m))
+      try {
+        execSync(`git add -A && git commit -qm "kb: meeting transcript ${m.title}" --no-verify`, { cwd: this.kbDir, stdio: 'ignore' })
+      } catch {}
+    }
     m.status = 'done'
     this.save()
   }
@@ -183,9 +194,37 @@ function transcribe(file: string): Promise<{ t: number; text: string }[]> {
   })
 }
 
-export const summaryPrompt = (m: Meeting) =>
-  `A meeting titled "${m.title}" just ended. Transcript (Me = Rafael, Them = the other side): ${m.transcriptPath}
+const fmt = (t: number) => `${String(Math.floor(t / 60)).padStart(2, '0')}:${String(Math.floor(t % 60)).padStart(2, '0')}`
+export const transcriptMd = (m: Meeting) =>
+  [`# ${m.title}`, ``, `Recorded ${new Date(m.startedAt).toLocaleString()} · ${fmt(((m.endedAt ?? Date.now()) - m.startedAt) / 1000)} · Me = Rafael, Them = the other side`, ``, ...m.segments.map((s) => `[${fmt(s.t)}] **${s.who}:** ${s.text}`)].join('\n')
 
-1. Read the transcript.
-2. Write a KB page meetings/${m.id.slice(0, 10)}-<slug>.md with: title, date, who (if inferable), 5-line summary, decisions, action items (owner + due date if mentioned), open questions. Add it under a "## Meetings" heading in README.md (create the heading if missing). Commit.
-3. Then call present_plan with a plan titled "Follow-ups: ${m.title}". One card "Proposed actions" with a checklist: board tasks to create (title, suggested assignee, priority), KB pages to update, agents to message. Nothing is created until the user approves. After approval, do exactly the approved items (create_task / kb edits / message_agent) and reply briefly.`
+export function listMeetings(workspaceId: string): Meeting[] {
+  const root = path.join(home(), 'meetings')
+  if (!fs.existsSync(root)) return []
+  const out: Meeting[] = []
+  for (const d of fs.readdirSync(root)) {
+    try {
+      const m = JSON.parse(fs.readFileSync(path.join(root, d, 'meeting.json'), 'utf8')) as Meeting
+      if (m.workspaceId === workspaceId) out.push({ ...m, segments: [] }) // list is light; read() gives the text
+    } catch {}
+  }
+  return out.sort((a, b) => b.startedAt - a.startedAt)
+}
+export function readMeeting(id: string): string {
+  const f = path.join(home(), 'meetings', id, 'transcript.md')
+  return fs.existsSync(f) ? fs.readFileSync(f, 'utf8') : ''
+}
+export function deleteMeeting(id: string) {
+  const d = path.join(home(), 'meetings', id)
+  let kbPath: string | undefined
+  try {
+    kbPath = (JSON.parse(fs.readFileSync(path.join(d, 'meeting.json'), 'utf8')) as Meeting).kbPath
+  } catch {}
+  fs.rmSync(d, { recursive: true, force: true })
+  if (kbPath) fs.rmSync(kbPath, { force: true })
+}
+
+export const summaryPrompt = (m: Meeting) =>
+  `Summarize the meeting "${m.title}" (${new Date(m.startedAt).toLocaleString()}). Transcript (Me = Rafael, Them = the other side): ${m.kbPath ?? m.transcriptPath}
+
+Write a KB page meetings/${m.id.slice(0, 10)}-summary.md with: title, date, who (if inferable), 5-line summary, decisions, action items (owner + due date if mentioned), open questions. Link the transcript file. Add a "## Meetings" section to README.md if missing and list the summary there. Commit. Then reply with the summary and, as suggestions only, any board tasks worth creating. Do not create tasks or message anyone unless asked.`
