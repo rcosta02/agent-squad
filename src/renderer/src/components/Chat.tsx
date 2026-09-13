@@ -119,6 +119,69 @@ export function Markdown({ text }: { text: string }) {
       blocks.push(<CodeBlock key={k++} code={buf.join('\n')} />)
       continue
     }
+    // table: header row, separator row, body rows
+    if (/^\s*\|.*\|\s*$/.test(line) && /^\s*\|?\s*:?-{2,}/.test(lines[i + 1] ?? '')) {
+      const cells = (l: string) => l.trim().replace(/^\|/, '').replace(/\|$/, '').split('|').map((c) => c.trim())
+      const head = cells(line)
+      i += 2
+      const rows: string[][] = []
+      while (i < lines.length && /^\s*\|.*\|\s*$/.test(lines[i])) rows.push(cells(lines[i++]))
+      blocks.push(
+        <div key={k++} className="md-table">
+          <table>
+            <thead>
+              <tr>
+                {head.map((h, j) => (
+                  <th key={j}>{inline(h)}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((r, ri) => (
+                <tr key={ri}>
+                  {head.map((_, j) => (
+                    <td key={j}>{inline(r[j] ?? '')}</td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )
+      continue
+    }
+    const h = /^(#{1,4})\s+(.+)$/.exec(line)
+    if (h) {
+      const Tag = (['h1', 'h2', 'h3', 'h4'] as const)[h[1].length - 1]
+      blocks.push(<Tag key={k++} className="md-h">{inline(h[2])}</Tag>)
+      i++
+      continue
+    }
+    const ol = /^\d+\.\s+/.test(line)
+    if (ol) {
+      const items: string[] = []
+      while (i < lines.length && /^\d+\.\s+/.test(lines[i])) items.push(lines[i++].replace(/^\d+\.\s+/, ''))
+      blocks.push(
+        <ol key={k++}>
+          {items.map((it, j) => (
+            <li key={j}>{inline(it)}</li>
+          ))}
+        </ol>
+      )
+      continue
+    }
+    if (line.startsWith('* ')) {
+      const items: string[] = []
+      while (i < lines.length && lines[i].startsWith('* ')) items.push(lines[i++].slice(2))
+      blocks.push(
+        <ul key={k++}>
+          {items.map((it, j) => (
+            <li key={j}>{inline(it)}</li>
+          ))}
+        </ul>
+      )
+      continue
+    }
     if (line.startsWith('- ')) {
       const items: string[] = []
       while (i < lines.length && lines[i].startsWith('- ')) items.push(lines[i++].slice(2))
@@ -136,7 +199,7 @@ export function Markdown({ text }: { text: string }) {
       continue
     }
     const buf: string[] = []
-    while (i < lines.length && lines[i].trim() !== '' && !lines[i].startsWith('```') && !lines[i].startsWith('- ')) buf.push(lines[i++])
+    while (i < lines.length && lines[i].trim() !== '' && !lines[i].startsWith('```') && !lines[i].startsWith('- ') && !lines[i].startsWith('* ') && !/^\s*\|/.test(lines[i]) && !/^#{1,4}\s/.test(lines[i]) && !/^\d+\.\s/.test(lines[i])) buf.push(lines[i++])
     blocks.push(
       <p key={k++}>
         {buf.map((l, j) => (
