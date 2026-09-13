@@ -13,7 +13,7 @@ type Props = {
   agent: Agent
   msgs: Msg[] | undefined
   running: boolean
-  onSend: (text: string, images: string[], planMode: boolean) => void
+  onSend: (text: string, images: string[], planMode: boolean, files: string[]) => void
   onOpenPlan: (planId: string) => void
   onStop: () => void
   onEdit: () => void
@@ -168,6 +168,15 @@ function UserBubble({ msg }: { msg: UserMsg }) {
       <div className="bubble user">
         {msg.routine && <div className="routine-tag"><IClock /> {msg.routine}</div>}
         {msg.group && <div className="routine-tag"># general</div>}
+        {msg.files && msg.files.length > 0 && (
+          <div className="bubble-files">
+            {msg.files.map((p) => (
+              <span key={p} className="file-chip static" title={p}>
+                {p.split('/').pop()}
+              </span>
+            ))}
+          </div>
+        )}
         {msg.images && msg.images.length > 0 && (
           <div className="bubble-images">
             {msg.images.map((p) => (
@@ -217,7 +226,8 @@ export default function Chat({ agent, msgs, running, onSend, onStop, onEdit, onN
   const [mcpOpen, setMcpOpen] = useState(false)
   const [dragging, setDragging] = useState(false)
   const [dropped, setDropped] = useState<string[]>([])
-  const clearDropped = useCallback(() => setDropped([]), [])
+  const [droppedFiles, setDroppedFiles] = useState<string[]>([])
+  const clearDropped = useCallback(() => (setDropped([]), setDroppedFiles([])), [])
   const dragDepth = useRef(0)
 
   const onDragEnter = (e: DragEvent<HTMLDivElement>) => {
@@ -234,8 +244,11 @@ export default function Chat({ agent, msgs, running, onSend, onStop, onEdit, onN
     e.preventDefault()
     dragDepth.current = 0
     setDragging(false)
-    const files = [...e.dataTransfer.files].filter((f) => f.type.startsWith('image/'))
-    if (files.length) setDropped(await Promise.all(files.map(fileToDataUrl)))
+    const all = [...e.dataTransfer.files]
+    const imgs = all.filter((f) => f.type.startsWith('image/'))
+    const others = all.filter((f) => !f.type.startsWith('image/')).map((f) => window.api.pathForFile(f)).filter(Boolean)
+    if (imgs.length) setDropped(await Promise.all(imgs.map(fileToDataUrl)))
+    if (others.length) setDroppedFiles(others)
   }
   const nearBottom = useRef(true)
 
@@ -324,7 +337,7 @@ export default function Chat({ agent, msgs, running, onSend, onStop, onEdit, onN
       onDragLeave={onDragLeave}
       onDrop={onDrop}
     >
-      {dragging && <div className="drop-overlay">Drop images to attach</div>}
+      {dragging && <div className="drop-overlay">Drop files to attach</div>}
       {mcpOpen && <McpModal agent={agent} onClose={() => setMcpOpen(false)} />}
       <header className="chat-header">
         <Avatar agent={agent} size={20} />
@@ -422,7 +435,7 @@ export default function Chat({ agent, msgs, running, onSend, onStop, onEdit, onN
           </div>
         )}
       </div>
-      <Composer agentId={agent.id} agentName={agent.name} running={running} pending={dropped} onClearPending={clearDropped} onSend={onSend} onStop={onStop} names={names} allowPlan commands={agent.commands} />
+      <Composer agentId={agent.id} agentName={agent.name} running={running} pending={dropped} pendingFiles={droppedFiles} onClearPending={clearDropped} onSend={onSend} onStop={onStop} names={names} allowPlan commands={agent.commands} />
     </div>
   )
 }

@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { IBook, IGear, IPlus } from './Icons'
+import { IGear, IPlus } from './Icons'
 import type { Agent, Workspace } from '../../../shared/types'
 import { formatTime } from '../lib'
 import Avatar from './Avatar'
@@ -8,7 +8,6 @@ type Props = {
   workspace: Workspace | null
   onNewWorkspace: () => void
   onEditWorkspace: () => void
-  onOpenKb: () => void
   agents: Agent[]
   selectedId: string | null // agent id or 'group'
   groupUnread: number
@@ -19,7 +18,7 @@ type Props = {
   onNew: () => void
 }
 
-export default function Sidebar({ workspace, onNewWorkspace, onEditWorkspace, onOpenKb, agents, selectedId, groupUnread, running, search, onSearch, onSelect, onNew }: Props) {
+export default function Sidebar({ workspace, onNewWorkspace, onEditWorkspace, agents, selectedId, groupUnread, running, search, onSearch, onSelect, onNew }: Props) {
   const [menu, setMenu] = useState(false)
   const q = search.trim().toLowerCase()
   const visible = q
@@ -48,15 +47,6 @@ export default function Sidebar({ workspace, onNewWorkspace, onEditWorkspace, on
                   }}
                 >
                   <IGear /> Edit workspace
-                </button>
-                <button
-                  className="menu-item"
-                  onClick={() => {
-                    setMenu(false)
-                    onOpenKb()
-                  }}
-                >
-                  <IBook /> Knowledge base
                 </button>
                 <button
                   className="menu-item"

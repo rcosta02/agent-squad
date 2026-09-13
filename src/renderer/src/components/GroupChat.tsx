@@ -77,7 +77,7 @@ export default function GroupChat({ agents, msgs, running, onSend }: Props) {
           </div>
         )}
       </div>
-      <Composer agentId="group" agentName="#general" running={false} pending={[]} onClearPending={() => {}} onSend={(t: string) => onSend(t)} onStop={() => {}} names={agents.map((a) => a.name)} />
+      <Composer agentId="group" agentName="#general" running={false} pending={[]} onClearPending={() => {}} onSend={(t: string) => onSend(t)}  onStop={() => {}} names={agents.map((a) => a.name)} />
     </div>
   )
 }

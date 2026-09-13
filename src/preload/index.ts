@@ -1,4 +1,4 @@
-import { contextBridge, ipcRenderer } from 'electron'
+import { contextBridge, ipcRenderer, webUtils } from 'electron'
 import type { Api, Event } from '../shared/types'
 
 const api: Api = {
@@ -11,7 +11,9 @@ const api: Api = {
   updateAgent: (id, patch) => ipcRenderer.invoke('agents:update', id, patch),
   deleteAgent: (id) => ipcRenderer.invoke('agents:delete', id),
   getMessages: (agentId) => ipcRenderer.invoke('messages:get', agentId),
-  send: (agentId, text, images, planMode) => ipcRenderer.invoke('chat:send', agentId, text, images, planMode),
+  send: (agentId, text, images, planMode, files) => ipcRenderer.invoke('chat:send', agentId, text, images, planMode, files),
+  pickFiles: () => ipcRenderer.invoke('dialog:files'),
+  pathForFile: (file) => webUtils.getPathForFile(file),
   getPlan: (id) => ipcRenderer.invoke('plan:get', id),
   respondPlan: (id, decision, feedback) => ipcRenderer.invoke('plan:respond', id, decision, feedback),
   saveAnnotations: (id, annotations) => ipcRenderer.invoke('plan:annotations', id, annotations),

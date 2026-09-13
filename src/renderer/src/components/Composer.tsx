@@ -6,8 +6,9 @@ type Props = {
   agentId: string
   running: boolean
   pending: string[] // images dropped onto the chat, as data URLs
+  pendingFiles?: string[] // other dropped files, as local paths
   onClearPending: () => void
-  onSend: (text: string, images: string[], planMode: boolean) => void
+  onSend: (text: string, images: string[], planMode: boolean, files: string[]) => void
   onStop: () => void
   names?: string[] // mentionable agent names
   allowPlan?: boolean // show the Plan toggle
@@ -55,7 +56,8 @@ export const fileToDataUrl = (f: File) =>
   })
 
 // eslint-disable-next-line react-refresh/only-export-components
-export default function Composer({ agentName, agentId, running, pending, onClearPending, onSend, onStop, names = [], allowPlan = false, commands = [] }: Props) {
+export default function Composer({ agentName, agentId, running, pending, onClearPending, onSend, onStop, names = [], allowPlan = false, commands = [], pendingFiles = [] }: Props) {
+  const [files, setFiles] = useState<string[]>([])
   const [planMode, setPlanMode] = useState(false)
   const [dictating, setDictating] = useState<'idle' | 'rec' | 'busy'>('idle')
   const stopDictation = useRef<(() => void) | null>(null)
@@ -172,19 +174,21 @@ export default function Composer({ agentName, agentId, running, pending, onClear
 
   // Images dropped on the chat pane arrive via props; move them into local state.
   useEffect(() => {
-    if (pending.length) {
-      setImages((prev) => [...prev, ...pending])
+    if (pending.length || pendingFiles.length) {
+      if (pending.length) setImages((prev) => [...prev, ...pending])
+      if (pendingFiles.length) setFiles((prev) => [...new Set([...prev, ...pendingFiles])])
       onClearPending()
     }
-  }, [pending, onClearPending])
+  }, [pending, pendingFiles, onClearPending])
 
   const submit = () => {
     const t = text.trim()
-    if (!t && images.length === 0) return
-    onSend(t || 'See attached image.', images, planMode)
+    if (!t && images.length === 0 && files.length === 0) return
+    onSend(t || (images.length ? 'See attached image.' : 'See attached file.'), images, planMode, files)
     setPlanMode(false)
     setText('')
     setImages([])
+    setFiles([])
   }
 
   const onKey = (e: KeyboardEvent<HTMLTextAreaElement>) => {
@@ -210,8 +214,16 @@ export default function Composer({ agentName, agentId, running, pending, onClear
   }
 
   const pick = async () => {
-    const urls = await window.api.pickImages()
-    if (urls.length) setImages((prev) => [...prev, ...urls])
+    const paths = await window.api.pickFiles()
+    if (!paths.length) return
+    const isImg = (p: string) => /\.(png|jpe?g|gif|webp)$/i.test(p)
+    setFiles((prev) => [...new Set([...prev, ...paths.filter((p) => !isImg(p))])])
+    const imgs = paths.filter(isImg)
+    if (imgs.length) {
+      // images still go through the data-URL path so they render as thumbnails
+      const urls = await Promise.all(imgs.map(async (p) => { const r = await fetch('file://' + p); const b = await r.blob(); return fileToDataUrl(new File([b], p)) }))
+      setImages((prev) => [...prev, ...urls])
+    }
   }
 
   return (
@@ -225,8 +237,14 @@ export default function Composer({ agentName, agentId, running, pending, onClear
           ))}
         </div>
       )}
-      {images.length > 0 && (
+      {(images.length > 0 || files.length > 0) && (
         <div className="attachments">
+          {files.map((p) => (
+            <div key={p} className="file-chip" title={p}>
+              <span className="file-name">{p.split('/').pop()}</span>
+              <button type="button" onClick={() => setFiles((prev) => prev.filter((x) => x !== p))}>×</button>
+            </div>
+          ))}
           {images.map((src, i) => (
             <div key={i} className="attachment">
               <img src={src} alt="" />
@@ -238,7 +256,7 @@ export default function Composer({ agentName, agentId, running, pending, onClear
         </div>
       )}
       <div className="composer-inner">
-        <button className="round-btn plus" title="Attach images" type="button" onClick={pick}>
+        <button className="round-btn plus" title="Attach files" type="button" onClick={pick}>
           <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
             <path d="M8 3v10M3 8h10" />
           </svg>
@@ -282,7 +300,7 @@ export default function Composer({ agentName, agentId, running, pending, onClear
             </svg>
           </button>
         ) : (
-          <button className="round-btn send" title="Send" onClick={submit} disabled={!text.trim() && images.length === 0} type="button">
+          <button className="round-btn send" title="Send" onClick={submit} disabled={!text.trim() && images.length === 0 && files.length === 0} type="button">
             <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M8 13V3M3.5 7.5L8 3l4.5 4.5" />
             </svg>

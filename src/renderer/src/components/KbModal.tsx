@@ -3,7 +3,7 @@ import { IPlus } from './Icons'
 import MdEditor from './MdEditor'
 import type { Workspace } from '../../../shared/types'
 
-type Props = { workspace: Workspace; onClose: () => void }
+type Props = { workspace: Workspace; onClose: () => void } // onClose = back to conversations
 
 export default function KbModal({ workspace, onClose }: Props) {
   const api = window.api
@@ -45,7 +45,6 @@ export default function KbModal({ workspace, onClose }: Props) {
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose()
       if ((e.metaKey || e.ctrlKey) && e.key === 's') {
         e.preventDefault()
         void save()
@@ -75,11 +74,17 @@ export default function KbModal({ workspace, onClose }: Props) {
   }
 
   return (
-    <div className="modal-backdrop" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
-      <div className="modal kb" role="dialog">
+    <div className="board kb-view">
+      <header className="chat-header board-header">
+        <button className="btn small back-btn" onClick={onClose}>
+          ← Conversations
+        </button>
+        <span className="name">{workspace.name} · Knowledge base</span>
+      </header>
+      <div className="kb-body">
         <div className="kb-side">
           <div className="kb-side-head">
-            <span>{workspace.name} KB</span>
+            <span>Files</span>
             <button className="icon-btn" title="New page" onClick={() => setNewPath(newPath === null ? 'runbooks/' : null)}>
               <IPlus />
             </button>
@@ -168,9 +173,6 @@ export default function KbModal({ workspace, onClose }: Props) {
             )}
             <button className="btn small primary" disabled={!dirty} onClick={save}>
               Save ⌘S
-            </button>
-            <button className="btn small" onClick={onClose}>
-              Close
             </button>
           </div>
           <div className="kb-md">{current && <MdEditor docKey={current} value={text} onChange={setText} />}</div>

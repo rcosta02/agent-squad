@@ -899,3 +899,14 @@ section.plan-card ul { margin: 0 0 8px; padding-left: 20px; }
 .plan-ico { display: inline-flex; color: #8e8cff; }
 .rec-opts { display: flex; gap: 6px; }
 .rec-opts .rev-pick { flex: 1; min-width: 0; }
+
+/* ---------- kb full-screen view ---------- */
+.kb-view .kb-body { flex: 1; min-height: 0; display: flex; }
+.kb-view .kb-side { width: 260px; }
+
+/* ---------- file attachments ---------- */
+.file-chip { display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 8px 0 10px; border-radius: 8px; background: #3a3a3c; border: 1px solid #48484a; font-size: 12px; font-family: var(--mono); color: var(--text); max-width: 240px; }
+.file-chip .file-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.file-chip button { border: 0; background: none; color: var(--muted); cursor: pointer; font-size: 14px; padding: 0; }
+.file-chip.static { height: 24px; background: rgba(0,0,0,0.12); border-color: rgba(0,0,0,0.15); color: #111; }
+.bubble-files { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 6px; }

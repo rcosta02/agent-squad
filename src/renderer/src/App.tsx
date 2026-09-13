@@ -50,6 +50,7 @@ export default function App() {
   const [tasks, setTasks] = useState<Record<string, Task[]>>({})
   const [meeting, setMeeting] = useState<Meeting | null>(null)
   const [showMeeting, setShowMeeting] = useState(false)
+  const [showKb, setShowKb] = useState(false)
   const [workspaceId, setWorkspaceId] = useState<string | null>(readWs)
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [messages, setMessages] = useState<Record<string, Msg[]>>({})
@@ -75,13 +76,14 @@ export default function App() {
     setSelectedId(null)
     setShowBoard(false)
     setShowMeeting(false)
+    setShowKb(false)
     try {
       localStorage.setItem(WS_KEY, id)
     } catch {}
   }, [])
   const isGroup = selectedId === 'group'
   const [showBoard, setShowBoard] = useState(false)
-  const isBoard = showBoard || showMeeting
+  const isBoard = showBoard || showMeeting || showKb
   const selected = useMemo(
     () => (isGroup || isBoard ? null : (sorted.find((a) => a.id === selectedId) ?? sorted[0] ?? null)),
     [agents, sorted, selectedId, isGroup, isBoard]
@@ -235,8 +237,8 @@ export default function App() {
   }, [isGroup, workspace?.id])
 
   const send = useCallback(
-    (text: string, images: string[], planMode: boolean) => {
-      if (selected) void api.send(selected.id, text, images.length ? images : undefined, planMode)
+    (text: string, images: string[], planMode: boolean, files: string[]) => {
+      if (selected) void api.send(selected.id, text, images.length ? images : undefined, planMode, files.length ? files : undefined)
     },
     [selected]
   )
@@ -305,10 +307,11 @@ export default function App() {
         unread={unreadByWs}
         onSwitch={switchWorkspace}
         onNew={() => setModal({ mode: 'ws-create' })}
-        onMeeting={() => (setShowBoard(false), setShowMeeting(true))}
-        onBoard={() => (setShowMeeting(false), setShowBoard(true))}
-        onChat={() => (setShowMeeting(false), setShowBoard(false))}
-        view={showMeeting ? 'meeting' : showBoard ? 'board' : 'chat'}
+        onMeeting={() => (setShowBoard(false), setShowKb(false), setShowMeeting(true))}
+        onBoard={() => (setShowMeeting(false), setShowKb(false), setShowBoard(true))}
+        onKb={() => (setShowMeeting(false), setShowBoard(false), setShowKb(true))}
+        onChat={() => (setShowMeeting(false), setShowBoard(false), setShowKb(false))}
+        view={showMeeting ? 'meeting' : showBoard ? 'board' : showKb ? 'kb' : 'chat'}
         recording={meeting?.status === 'recording' || meeting?.status === 'stopping'}
         boardUnread={workspace?.boardUnread ?? 0}
       />
@@ -317,7 +320,6 @@ export default function App() {
         workspace={workspace}
         onNewWorkspace={() => setModal({ mode: 'ws-create' })}
         onEditWorkspace={() => setModal({ mode: 'ws-edit' })}
-        onOpenKb={() => setModal({ mode: 'kb' })}
         agents={sorted}
         selectedId={isGroup ? 'group' : (selected?.id ?? null)}
         groupUnread={workspace?.groupUnread ?? 0}
@@ -334,6 +336,8 @@ export default function App() {
       <main className="chat-pane">
         {openPlan ? (
           <PlanView planId={openPlan} onBack={() => setOpenPlan(null)} />
+        ) : showKb && workspace ? (
+          <KbModal workspace={workspace} onClose={() => setShowKb(false)} />
         ) : showMeeting && workspace ? (
           <MeetingView
             workspace={workspace}
@@ -371,7 +375,6 @@ export default function App() {
           </div>
         )}
       </main>
-      {modal?.mode === 'kb' && workspace && <KbModal workspace={workspace} onClose={closeModal} />}
       {modal?.mode === 'routines' && selected && (
         <RoutinesModal agent={selected} routines={routines.filter((r) => r.agentId === modal.agentId)} onClose={closeModal} />
       )}

@@ -10,12 +10,13 @@ type Props = {
   onMeeting: () => void
   onBoard: () => void
   onChat: () => void
-  view: 'chat' | 'board' | 'meeting'
+  onKb: () => void
+  view: 'chat' | 'kb' | 'board' | 'meeting'
   recording: boolean
   boardUnread: number
 }
 
-export default function Rail({ workspaces, currentId, unread, onSwitch, onNew, onMeeting, onBoard, onChat, view, recording, boardUnread }: Props) {
+export default function Rail({ workspaces, currentId, unread, onSwitch, onNew, onMeeting, onBoard, onChat, onKb, view, recording, boardUnread }: Props) {
   return (
     <nav className="rail">
       <div className="rail-top" />
@@ -41,6 +42,12 @@ export default function Rail({ workspaces, currentId, unread, onSwitch, onNew, o
         <button className={'rail-nav' + (view === 'chat' ? ' active' : '')} title="Conversations" onClick={onChat}>
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
             <path d="M4 5.5A2.5 2.5 0 0 1 6.5 3h11A2.5 2.5 0 0 1 20 5.5v8a2.5 2.5 0 0 1-2.5 2.5H10l-4.5 4v-4H6.5A2.5 2.5 0 0 1 4 13.5z" />
+          </svg>
+        </button>
+        <button className={'rail-nav' + (view === 'kb' ? ' active' : '')} title="Knowledge base" onClick={onKb}>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2z" />
+            <path d="M4 19a2 2 0 0 1 2-2h13M8 7h7" />
           </svg>
         </button>
         <button className={'rail-nav' + (view === 'board' ? ' active' : '')} title="Board" onClick={onBoard}>

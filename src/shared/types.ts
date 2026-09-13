@@ -101,7 +101,7 @@ export type Routine = {
 export type Session = { sessionId: string; startedAt: number; title: string }
 
 export type Msg =
-  | { id: string; role: 'user'; text: string; from?: string; routine?: string; group?: boolean; images?: string[]; ts: number } // from = another agent's name; routine = routine name that fired this
+  | { id: string; role: 'user'; text: string; from?: string; routine?: string; group?: boolean; images?: string[]; files?: string[]; ts: number } // from = another agent's name; routine = routine name that fired this
   | { id: string; role: 'assistant'; text: string; ts: number; streaming?: boolean }
   | {
       id: string
@@ -154,7 +154,9 @@ export type Api = {
   updateAgent(id: string, patch: Partial<Agent>): Promise<Agent>
   deleteAgent(id: string): Promise<void>
   getMessages(agentId: string): Promise<Msg[]>
-  send(agentId: string, text: string, images?: string[], planMode?: boolean): Promise<void> // images = data URLs; planMode = read-only turn ending in a plan for approval
+  send(agentId: string, text: string, images?: string[], planMode?: boolean, files?: string[]): Promise<void> // images = data URLs; files = local paths handed to the agent as-is
+  pickFiles(): Promise<string[]> // any files, returns paths
+  pathForFile(file: File): string // local path of a dropped File (Electron webUtils)
   getPlan(id: string): Promise<Plan>
   respondPlan(id: string, decision: 'approve' | 'changes', feedback: string): Promise<void>
   saveAnnotations(id: string, annotations: Annotation[]): Promise<void>

@@ -43,8 +43,12 @@ ipcMain.handle('agents:create', (_, input) => sessions.create(input))
 ipcMain.handle('agents:update', (_, id, patch) => sessions.update(id, patch))
 ipcMain.handle('agents:delete', (_, id) => sessions.delete(id))
 ipcMain.handle('messages:get', (_, id) => sessions.getMessages(id))
-ipcMain.handle('chat:send', (_, id, text, images, planMode) => {
-  void sessions.send(id, text, undefined, 0, undefined, images, undefined, planMode) // runs in background; results arrive as events
+ipcMain.handle('chat:send', (_, id, text, images, planMode, files) => {
+  void sessions.send(id, text, undefined, 0, undefined, images, undefined, planMode, files) // runs in background; results arrive as events
+})
+ipcMain.handle('dialog:files', async () => {
+  const r = await dialog.showOpenDialog({ properties: ['openFile', 'multiSelections'] })
+  return r.canceled ? [] : r.filePaths
 })
 ipcMain.handle('plan:get', (_, id) => sessions.getPlan(id))
 ipcMain.handle('plan:respond', (_, id, decision, feedback) => sessions.respondPlan(id, decision, feedback))

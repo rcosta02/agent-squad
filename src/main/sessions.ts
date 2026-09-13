@@ -490,7 +490,7 @@ export class Sessions {
     this.pending.delete(toolUseId)
   }
 
-  async send(id: string, text: string, from?: string, hop = 0, routine?: string, imageData?: string[], group?: Group, planMode = false) {
+  async send(id: string, text: string, from?: string, hop = 0, routine?: string, imageData?: string[], group?: Group, planMode = false, files?: string[]) {
     const agent = this.get(id)
     if (this.active.has(id)) {
       if (!from && !group) throw new Error('Agent is busy')
@@ -499,7 +499,7 @@ export class Sessions {
     }
     const msgs = this.getMessages(id)
     const images = imageData?.length ? imageData.map(saveAttachment) : undefined
-    this.push(agent, msgs, { id: randomUUID(), role: 'user', text, from: group ? group.author : from, group: !!group, routine, images, ts: Date.now() })
+    this.push(agent, msgs, { id: randomUUID(), role: 'user', text, from: group ? group.author : from, group: !!group, routine, images, files: files?.length ? files : undefined, ts: Date.now() })
     this.emit({ type: 'status', agentId: id, running: true })
 
     const abort = new AbortController()
@@ -734,6 +734,7 @@ export class Sessions {
           ? `[Scheduled routine "${routine}"] ${text}`
           : text
     if (images) prompt += `\n\nAttached image${images.length > 1 ? 's' : ''} (view with the Read tool):\n${images.join('\n')}`
+    if (files?.length) prompt += `\n\nAttached file${files.length > 1 ? 's' : ''} (local paths, read with the Read tool):\n${files.join('\n')}`
     const q = query({ prompt, options })
     this.active.set(id, { q, abort })
 
