@@ -198,7 +198,7 @@ export function Markdown({ text }: { text: string }) {
       i++
       continue
     }
-    const buf: string[] = []
+    const buf: string[] = [lines[i++]] // always consume at least one line: a partial table/list line during streaming must not stall the loop
     while (i < lines.length && lines[i].trim() !== '' && !lines[i].startsWith('```') && !lines[i].startsWith('- ') && !lines[i].startsWith('* ') && !/^\s*\|/.test(lines[i]) && !/^#{1,4}\s/.test(lines[i]) && !/^\d+\.\s/.test(lines[i])) buf.push(lines[i++])
     blocks.push(
       <p key={k++}>
