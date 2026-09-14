@@ -78,17 +78,6 @@ Requires Node 20+, Xcode command line tools and a `claude` binary on your PATH.
 | `AGENT_SQUAD_WHISPER_MODEL` | Path to a whisper model file |
 | `AGENT_SQUAD_AUDIOTAP` | Path to the audio helper binary |
 
-### Releasing
-
-Bump `version` in `package.json`, then:
-
-```sh
-export GH_TOKEN=...   # repo scope
-npm run release
-```
-
-This uploads a draft GitHub release with the `.dmg`, `.zip` and `latest-mac.yml`. Publish it and installed apps update on next quit + reopen. Distribution outside your own machines needs a Developer ID certificate and notarization.
-
 ## Contributing
 
 Issues and PRs welcome. Keep changes small, boring and tested in the real app.
@@ -97,12 +86,5 @@ Issues and PRs welcome. Keep changes small, boring and tested in the real app.
 
 Agent Squad is free software, licensed under the **GNU General Public License v3.0 or later** (GPL-3.0-or-later).
 Copyright © 2026 Rafael Costa.
-
-In short:
-
-- You may use, study, copy and modify it freely.
-- If you distribute it, modified or not, you must provide the source code under the same license.
-- You must keep the copyright notice and license text, and state the changes you made.
-- No warranty.
 
 Full text in [LICENSE](LICENSE) and at [gnu.org/licenses/gpl-3.0](https://www.gnu.org/licenses/gpl-3.0.html). Notice for source headers in [COPYRIGHT](COPYRIGHT).
