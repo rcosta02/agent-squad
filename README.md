@@ -26,21 +26,41 @@
 
 Agent Squad looks like a messaging app. Behind every conversation is a local Claude Code process with its own folder, model, system prompt and permissions. Agents share a knowledge base, talk to each other in a group chat, pick up tasks from a board, and run on a schedule. Nothing leaves your Mac except what Claude Code already sends.
 
+<p align="center">
+  <img src="docs/chat.png" width="100%" alt="Chat with an agent: tool calls, code, and a permission card">
+</p>
+
 ## Features
 
-- **Workspaces** — one per client, team or project. Each has its own agents, board, knowledge base and meetings.
-- **Agents** — name, emoji, folder, model, autonomy level and a custom system prompt. Sessions resume where they left off. Full history of past sessions.
-- **Permissions in the chat** — tool calls that need approval show up as cards. Approve, deny, or mark the agent autonomous.
-- **Plan mode** — ask for a plan, review it as a document, leave inline notes, approve or request changes. Revisions are tracked.
-- **Group chat** — `@mention` agents to make them talk to each other, with a hop limit so they don't loop forever.
-- **Board** — kanban with priorities, labels and comments. Assign a task to an agent and it gets to work.
-- **Routines** — cron-scheduled prompts per agent. Daily standup digests, MR babysitting, whatever you'd otherwise do by hand.
-- **Knowledge base** — git-tracked markdown folder per workspace, exposed to every agent as a skill. Agents read it before answering and write durable facts back.
-- **Meetings** — record mic and system audio, transcribe locally with whisper, summarise with Claude, file into the knowledge base.
-- **Dictation** — hold the mic in the composer, speak, send.
-- **MCP** — see which servers each agent has, add new ones, run OAuth logins from the app.
-- **Markdown everywhere** — tables, code with copy, mermaid diagrams, images.
-- **Light and dark**, adjustable zoom, silent auto-updates from GitHub Releases.
+**Agents, in a chat.** Every conversation is a Claude Code session with its own folder, model, system prompt and autonomy level. Tool calls show up as cards, permission requests wait for your Allow. Sessions resume where they left off.
+
+**Plan mode with review.** Ask for a plan, read it as a document, leave inline notes on any line, then approve or request changes. Every revision is kept.
+
+<p align="center"><img src="docs/plan.png" width="100%" alt="Plan review with inline notes"></p>
+
+**Group chat.** `@mention` agents to make them talk to each other. A hop limit keeps them from looping forever.
+
+<p align="center"><img src="docs/group.png" width="100%" alt="Group chat with @mentions"></p>
+
+**Board.** Kanban with priorities, labels, comments. Assign a task to an agent and it gets to work.
+
+<p align="center"><img src="docs/board.png" width="100%" alt="Kanban board"></p>
+
+**Knowledge base.** A git-tracked markdown folder per workspace, exposed to every agent as a skill. Agents read it before answering and write durable facts back. Edit it in place with a WYSIWYG editor.
+
+<p align="center"><img src="docs/kb.png" width="100%" alt="Knowledge base editor"></p>
+
+**Meetings.** Record mic and system audio, transcribe locally with whisper, summarise with Claude, file the notes into the knowledge base. Nothing leaves your Mac.
+
+<p align="center"><img src="docs/meetings.png" width="100%" alt="Meeting transcript and summary"></p>
+
+**Routines.** Cron-scheduled prompts per agent: morning MR digests, nightly test sweeps, Friday changelogs.
+
+<p align="center"><img src="docs/routines.png" width="100%" alt="Routines"></p>
+
+**And the rest.** Dictation from the composer. MCP server management with OAuth logins. Markdown with tables, code copy, mermaid diagrams and images. Light and dark themes, adjustable zoom. Silent auto-updates from GitHub Releases.
+
+<p align="center"><img src="docs/chat-light.png" width="100%" alt="Light theme"></p>
 
 ## Quick start
 
