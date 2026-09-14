@@ -1,6 +1,6 @@
 {
   "name": "agent-squad",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "main": "./out/main/index.js",
   "type": "module",
@@ -80,11 +80,13 @@
         "Contents/Resources/whisper/libggml-base.0.dylib",
         "Contents/Resources/whisper/libomp.dylib",
         "Contents/Resources/audiotap"
-      ]
+      ],
+      "notarize": true
     },
     "publish": {
       "provider": "github"
-    }
+    },
+    "artifactName": "${name}-${version}-${arch}.${ext}"
   },
   "repository": "github:rcosta02/agent-squad",
   "author": "Rafael Costa",
