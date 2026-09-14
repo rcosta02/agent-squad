@@ -10,6 +10,7 @@ export default function MdEditor({ value, onChange, docKey }: Props) {
   const host = useRef<HTMLDivElement>(null)
   const ed = useRef<Editor | null>(null)
   const last = useRef(value)
+  const theme = document.documentElement.dataset.theme === 'light' ? 'light' : 'dark'
 
   useEffect(() => {
     if (!host.current) return
@@ -19,7 +20,7 @@ export default function MdEditor({ value, onChange, docKey }: Props) {
       hideModeSwitch: true,
       previewStyle: 'tab',
       height: '100%',
-      theme: 'dark',
+      theme,
       usageStatistics: false,
       initialValue: value,
       autofocus: false,
@@ -41,7 +42,7 @@ export default function MdEditor({ value, onChange, docKey }: Props) {
       ed.current = null
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [docKey])
+  }, [docKey, theme])
 
   // External value change (opened another file / reverted): push it in without echoing back.
   useEffect(() => {

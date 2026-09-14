@@ -1,5 +1,5 @@
 {
-  "name": "claude-desk",
+  "name": "agent-squad",
   "version": "0.1.0",
   "private": true,
   "main": "./out/main/index.js",
@@ -9,12 +9,17 @@
     "build": "electron-vite build",
     "start": "electron-vite build && open -n ./node_modules/electron/dist/Electron.app --args \"$PWD\"",
     "helper": "xcrun swiftc -O -swift-version 5 helper/audiotap.swift -o resources/audiotap -framework AVFoundation -framework CoreAudio",
-    "start:term": "electron-vite preview"
+    "start:term": "electron-vite preview",
+    "dist": "npm run native && electron-vite build && electron-builder --mac",
+    "release": "npm run native && electron-vite build && electron-builder --mac --publish always",
+    "whisper": "bash scripts/bundle-whisper.sh",
+    "native": "npm run helper && npm run whisper"
   },
   "dependencies": {
     "@anthropic-ai/claude-agent-sdk": "^0.3.263",
     "@toast-ui/editor": "^3.2.2",
     "diff": "^9.0.0",
+    "electron-updater": "^6.8.9",
     "mermaid": "^11.17.2",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
@@ -26,8 +31,62 @@
     "@types/react-dom": "^19.1.0",
     "@vitejs/plugin-react": "^4.5.0",
     "electron": "^44.2.0",
+    "electron-builder": "^26.15.3",
     "electron-vite": "^5.0.0",
     "typescript": "^5.8.0",
     "vite": "^6.3.0"
-  }
+  },
+  "productName": "Agent Squad",
+  "description": "Desktop squad of coding agents",
+  "build": {
+    "appId": "com.rcosta.agent-squad",
+    "productName": "Agent Squad",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "out/**"
+    ],
+    "asarUnpack": [
+      "node_modules/@anthropic-ai/claude-agent-sdk/**"
+    ],
+    "extraResources": [
+      {
+        "from": "resources/audiotap",
+        "to": "audiotap"
+      },
+      {
+        "from": "resources/whisper",
+        "to": "whisper"
+      }
+    ],
+    "mac": {
+      "target": [
+        "dmg",
+        "zip"
+      ],
+      "category": "public.app-category.developer-tools",
+      "hardenedRuntime": true,
+      "entitlements": "build/entitlements.mac.plist",
+      "entitlementsInherit": "build/entitlements.mac.plist",
+      "extendInfo": {
+        "NSMicrophoneUsageDescription": "Agent Squad records your microphone for dictation and meeting notes.",
+        "NSAudioCaptureUsageDescription": "Agent Squad records system audio for meeting notes."
+      },
+      "binaries": [
+        "Contents/Resources/whisper/whisper-cli",
+        "Contents/Resources/whisper/libwhisper.1.dylib",
+        "Contents/Resources/whisper/libggml.0.dylib",
+        "Contents/Resources/whisper/libggml-base.0.dylib",
+        "Contents/Resources/whisper/libomp.dylib",
+        "Contents/Resources/audiotap"
+      ]
+    },
+    "publish": {
+      "provider": "github"
+    }
+  },
+  "repository": "github:rcosta02/agent-squad",
+  "author": "Rafael Costa",
+  "license": "GPL-3.0-or-later"
 }

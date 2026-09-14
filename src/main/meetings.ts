@@ -2,21 +2,59 @@ import { spawn, execFile, execSync, type ChildProcess } from 'node:child_process
 import fs from 'node:fs'
 import path from 'node:path'
 import { app } from 'electron'
+import { home, loadProfile } from './store'
+import { claudeBin } from './cli'
 import { query } from '@anthropic-ai/claude-agent-sdk'
 import type { Meeting, MeetingSegment } from '../shared/types'
 
-const home = () => process.env.CLAUDE_DESK_HOME || path.join(app.getPath('home'), '.claude-desk')
 const modelsDir = () => path.join(home(), 'models')
 export const MODELS = [
   { file: 'ggml-large-v3-turbo.bin', label: 'Turbo (fast)' },
   { file: 'ggml-large-v3.bin', label: 'Large v3 (most accurate, ~3× slower)' }
 ]
-const modelPath = (file?: string) => (file ? path.join(modelsDir(), file) : process.env.CLAUDE_DESK_WHISPER_MODEL || path.join(modelsDir(), MODELS[0].file))
-export const whisperModels = () => MODELS.map((m) => ({ ...m, available: fs.existsSync(path.join(modelsDir(), m.file)) }))
+const modelPath = (file?: string) => (file ? path.join(modelsDir(), file) : process.env.AGENT_SQUAD_WHISPER_MODEL || path.join(modelsDir(), MODELS[0].file))
+export const whisperModels = () => MODELS.map((m) => ({ ...m, available: fs.existsSync(path.join(modelsDir(), m.file)), progress: downloads.get(m.file)?.progress }))
 export type WhisperOpts = { language?: string; model?: string; prompt?: string }
-const whisperBin = () => process.env.CLAUDE_DESK_WHISPER || '/opt/homebrew/bin/whisper-cli'
-const claudeBin = () => process.env.CLAUDE_DESK_CLI || '/Users/rafaelcosta/.local/bin/claude'
-const helperBin = () => process.env.CLAUDE_DESK_AUDIOTAP || path.join(app.getAppPath(), 'resources', 'audiotap')
+const bundledWhisper = () => path.join(app.isPackaged ? process.resourcesPath : path.join(app.getAppPath(), 'resources'), 'whisper', 'whisper-cli')
+const whisperBin = () => process.env.AGENT_SQUAD_WHISPER || (fs.existsSync(bundledWhisper()) ? bundledWhisper() : '/opt/homebrew/bin/whisper-cli')
+
+// Models are fetched from Hugging Face on demand (and prefetched at launch), so the app is usable without any manual install.
+const MODEL_URL = (file: string) => `https://huggingface.co/ggerganov/whisper.cpp/resolve/main/${file}`
+const downloads = new Map<string, { promise: Promise<void>; progress: number }>() // file -> in-flight download
+export function ensureModel(file: string): Promise<void> {
+  const target = path.join(modelsDir(), file)
+  if (fs.existsSync(target)) return Promise.resolve()
+  const running = downloads.get(file)
+  if (running) return running.promise
+  const entry = { progress: 0, promise: Promise.resolve() }
+  entry.promise = (async () => {
+    fs.mkdirSync(modelsDir(), { recursive: true })
+    const part = target + '.part'
+    try {
+      const res = await fetch(MODEL_URL(file))
+      if (!res.ok || !res.body) throw new Error(`model download failed: HTTP ${res.status}`)
+      const total = Number(res.headers.get('content-length') || 0)
+      const out = fs.createWriteStream(part)
+      let got = 0
+      for await (const chunk of res.body as unknown as AsyncIterable<Uint8Array>) {
+        got += chunk.length
+        if (total) entry.progress = Math.round((got / total) * 100)
+        if (!out.write(chunk)) await new Promise<void>((r) => out.once('drain', () => r()))
+      }
+      await new Promise<void>((r, j) => out.end((e?: Error | null) => (e ? j(e) : r())))
+      fs.renameSync(part, target)
+    } catch (e) {
+      fs.rmSync(part, { force: true })
+      throw e
+    } finally {
+      downloads.delete(file)
+    }
+  })()
+  downloads.set(file, entry)
+  return entry.promise
+}
+export const prefetchModel = () => ensureModel(MODELS[0].file).catch((e) => console.error('[whisper] prefetch', (e as Error).message))
+const helperBin = () => process.env.AGENT_SQUAD_AUDIOTAP || (app.isPackaged ? path.join(process.resourcesPath, 'audiotap') : path.join(app.getAppPath(), 'resources', 'audiotap'))
 
 type Emit = (m: Meeting) => void
 type Chunk = { track: 'mic' | 'sys'; path: string; start: number; dur: number; final: boolean }
@@ -35,8 +73,7 @@ export class Recorder {
 
   preflight() {
     if (!fs.existsSync(helperBin())) throw new Error(`Audio helper missing at ${helperBin()}. Run: npm run helper`)
-    if (!fs.existsSync(whisperBin())) throw new Error('whisper-cli not found. Install: brew install whisper-cpp')
-    if (!fs.existsSync(modelPath())) throw new Error(`Whisper model missing at ${modelPath()}`)
+    if (!fs.existsSync(whisperBin())) throw new Error(`whisper-cli missing at ${whisperBin()}. Run: npm run whisper`)
   }
 
   start(workspaceId: string, title: string, kbDir: string | undefined, opts: WhisperOpts & { vocab?: string } = {}) {
@@ -95,7 +132,7 @@ export class Recorder {
       if (c.track === 'sys') {
         if (wavRms(c.path) === 0) {
           m.silentSys = (m.silentSys ?? 0) + 1
-          if (m.silentSys >= 3 && !m.error) m.error = 'System audio is silent. Grant "System Audio Recording" to the app that launched Claude Desk (System Settings → Privacy & Security → Screen & System Audio Recording), then restart the app.'
+          if (m.silentSys >= 3 && !m.error) m.error = 'System audio is silent. Grant "System Audio Recording" to the app that launched Agent Squad (System Settings → Privacy & Security → Screen & System Audio Recording), then restart the app.'
         } else m.silentSys = 0
       }
       try {
@@ -205,7 +242,8 @@ export function trimSeam(prevText: string, segs: MeetingSegment[]): MeetingSegme
 }
 
 /** whisper-cli → segments with seconds offsets. Skips near-silent files fast. */
-export function transcribe(file: string, o: WhisperOpts = {}): Promise<{ t: number; text: string }[]> {
+export async function transcribe(file: string, o: WhisperOpts = {}): Promise<{ t: number; text: string }[]> {
+  await ensureModel(o.model || path.basename(modelPath()))
   return new Promise((resolve, reject) => {
     const st = fs.statSync(file)
     if (st.size < 19200) return resolve([]) // < 0.6s of audio: whisper hallucinates on stubs
@@ -230,7 +268,7 @@ export function transcribe(file: string, o: WhisperOpts = {}): Promise<{ t: numb
 
 const fmt = (t: number) => `${String(Math.floor(t / 60)).padStart(2, '0')}:${String(Math.floor(t % 60)).padStart(2, '0')}`
 export const transcriptMd = (m: Meeting) =>
-  [`# ${m.title}`, ``, `Recorded ${new Date(m.startedAt).toLocaleString()} · ${fmt(((m.endedAt ?? Date.now()) - m.startedAt) / 1000)} · Me = Rafael, Them = the other side`, ``, ...m.segments.map((s) => `[${fmt(s.t)}] **${s.who}:** ${s.text}`)].join('\n')
+  [`# ${m.title}`, ``, `Recorded ${new Date(m.startedAt).toLocaleString()} · ${fmt(((m.endedAt ?? Date.now()) - m.startedAt) / 1000)} · Me = ${loadProfile()?.firstName ?? 'me'}, Them = the other side`, ``, ...m.segments.map((s) => `[${fmt(s.t)}] **${s.who}:** ${s.text}`)].join('\n')
 
 export function listMeetings(workspaceId: string): Meeting[] {
   const root = path.join(home(), 'meetings')
@@ -295,7 +333,7 @@ Write markdown with these sections, terse bullets, no preamble:
 ## Suggested tasks (title, suggested owner) — suggestions only
 Omit a section if empty.`
   let out = ''
-  for await (const m of query({ prompt, options: { cwd: dir, pathToClaudeCodeExecutable: claudeBin(), settingSources: [], tools: [], maxTurns: 1, model: model || 'claude-sonnet-5', systemPrompt: 'You write meeting notes. Output markdown only.' } })) {
+  for await (const m of query({ prompt, options: { cwd: dir, pathToClaudeCodeExecutable: claudeBin, settingSources: [], tools: [], maxTurns: 1, model: model || 'claude-sonnet-5', systemPrompt: 'You write meeting notes. Output markdown only.' } })) {
     if (m.type === 'assistant') for (const b of m.message.content) if (b.type === 'text') out += b.text
     if (m.type === 'result') break
   }
@@ -352,6 +390,8 @@ export function renameMeeting(id: string, title: string) {
 export async function dictate(wavBase64: string, language?: string, vocab?: string): Promise<string> {
   const dir = path.join(home(), 'dictation')
   fs.mkdirSync(dir, { recursive: true })
+  const ready = whisperModels()[0]
+  if (!ready.available) throw new Error(`Speech model still downloading (${ready.progress ?? 0}%). Try again in a bit.`)
   const f = path.join(dir, `${Date.now()}.wav`)
   fs.writeFileSync(f, Buffer.from(wavBase64, 'base64'))
   try {

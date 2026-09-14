@@ -2,8 +2,15 @@
 
 export type Workspace = { id: string; name: string; emoji: string; image?: string; kbDir?: string; groupUnread?: number; boardUnread?: number } // image = small data URL; empty = initials. kbDir = shared knowledge base folder
 
+// ponytail: only Claude Code has a runner. Re-add codex / openai / opencode / cursor / anthropic-api here once sessions.ts can run them.
+export const PROVIDERS = [['claude-code', 'Claude Code', 'CLI subscription']] as const
+export type Provider = (typeof PROVIDERS)[number][0]
+export type Theme = 'dark' | 'light'
+export type Profile = { firstName: string; lastName: string; providers: Provider[]; theme?: Theme; zoom?: number } // zoom = percent, 100 = default
+
 export type Agent = {
   id: string
+  provider?: Provider // undefined = claude-code (agents created before providers existed)
   workspaceId: string
   name: string
   emoji: string
@@ -150,7 +157,11 @@ export type Api = {
   updateWorkspace(id: string, patch: Partial<Workspace>): Promise<Workspace>
   deleteWorkspace(id: string): Promise<void> // refuses if it still has agents
   listAgents(): Promise<Agent[]>
-  createAgent(input: { workspaceId: string; name: string; emoji: string; color: string; cwd: string; autonomous: boolean; systemPrompt?: string; model?: string }): Promise<Agent>
+  createAgent(input: { workspaceId: string; name: string; emoji: string; color: string; cwd: string; autonomous: boolean; systemPrompt?: string; model?: string; provider?: Provider }): Promise<Agent>
+  getProfile(): Promise<Profile | null> // null = first run, show onboarding
+  saveProfile(p: Profile): Promise<Profile>
+  setZoom(percent: number): void
+  setTheme(theme: Theme): Promise<void> // also repaints the native window background
   updateAgent(id: string, patch: Partial<Agent>): Promise<Agent>
   deleteAgent(id: string): Promise<void>
   getMessages(agentId: string): Promise<Msg[]>
@@ -196,7 +207,7 @@ export type Api = {
   dictate(wavBase64: string, language?: string): Promise<string> // 16 kHz mono 16-bit WAV → text via whisper
   micAccess(): Promise<boolean>
   meetingStart(workspaceId: string, title: string, opts?: { language?: string; model?: string }): Promise<Meeting>
-  whisperModels(): Promise<{ file: string; label: string; available: boolean }[]>
+  whisperModels(): Promise<{ file: string; label: string; available: boolean; progress?: number }[]> // progress = % while downloading
   meetingStop(): Promise<Meeting | null> // stops and finishes transcription; nothing else happens
   meetingCurrent(): Promise<Meeting | null>
   meetingList(workspaceId: string): Promise<Meeting[]> // newest first

@@ -1,4 +1,4 @@
-import { contextBridge, ipcRenderer, webUtils } from 'electron'
+import { contextBridge, ipcRenderer, webFrame, webUtils } from 'electron'
 import type { Api, Event } from '../shared/types'
 
 const api: Api = {
@@ -43,6 +43,10 @@ const api: Api = {
   kbWrite: (workspaceId, rel, content) => ipcRenderer.invoke('kb:write', workspaceId, rel, content),
   kbDelete: (workspaceId, rel) => ipcRenderer.invoke('kb:delete', workspaceId, rel),
   copy: (text) => ipcRenderer.invoke('clipboard:write', text),
+  getProfile: () => ipcRenderer.invoke('profile:get'),
+  saveProfile: (p) => ipcRenderer.invoke('profile:save', p),
+  setZoom: (percent) => webFrame.setZoomFactor(percent / 100),
+  setTheme: (theme) => ipcRenderer.invoke('theme:set', theme),
   mcpConfigured: (agentId) => ipcRenderer.invoke('mcp:configured', agentId),
   mcpAdd: (agentId, input) => ipcRenderer.invoke('mcp:add', agentId, input),
   mcpRemove: (agentId, name, scope) => ipcRenderer.invoke('mcp:remove', agentId, name, scope),

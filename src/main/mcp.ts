@@ -2,8 +2,8 @@ import { execFileSync, spawn } from 'node:child_process'
 import fs from 'node:fs'
 import path from 'node:path'
 import type { McpServerInfo } from '../shared/types'
+import { claudeBin } from './cli'
 
-const claudeBin = process.env.CLAUDE_DESK_CLI || '/Users/rafaelcosta/.local/bin/claude'
 const home = () => process.env.HOME || ''
 const cli = (args: string[], cwd?: string) => execFileSync(claudeBin, args, { cwd, encoding: 'utf8', env: process.env, timeout: 20_000 })
 

@@ -1,9 +1,9 @@
 import fs from 'node:fs'
 import { execSync } from 'node:child_process'
 import path from 'node:path'
-import { app } from 'electron'
+import { home } from './store'
 
-const root = () => path.join(process.env.CLAUDE_DESK_HOME || path.join(app.getPath('home'), '.claude-desk'), 'kb')
+const root = () => path.join(home(), 'kb')
 export const slug = (name: string) => name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'workspace'
 export const defaultKbDir = (name: string) => path.join(root(), slug(name))
 

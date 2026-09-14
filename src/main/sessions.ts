@@ -2,8 +2,8 @@ import { createSdkMcpServer, query, tool, type Options, type PermissionResult, t
 import { z } from 'zod'
 import { randomUUID } from 'node:crypto'
 import { app } from 'electron'
-import { execSync } from 'node:child_process'
 import type { Agent, Annotation, Event, GroupMsg, Msg, Plan, Routine, Task, TaskStatus, Workspace } from '../shared/types'
+import { claudeBin } from './cli'
 import { loadAgents, loadGroup, loadMessages, loadPlan, loadRoutines, loadTasks, loadWorkspaces, saveAgents, saveAttachment, saveGroup, saveMessages, savePlan, saveRoutines, saveTasks, saveWorkspaces, deleteMessages } from './store'
 import { cronMatches, isValidCron, nextRun } from './cron'
 import { defaultKbDir, ensureKb, readIndex } from './kb'
@@ -21,15 +21,6 @@ const PLAN_FORMAT = `Write the plan as markdown that renders visually. Use "## "
 Keep prose to short bullets. No headings deeper than ##.`
 const MAX_HOPS = 4 // ponytail: A->B->A->B then stop; prevents agents chatting forever
 
-// Electron's process.execPath is not node, so spawn the user's native `claude` binary instead of the SDK's bundled JS.
-const claudeBin = (() => {
-  if (process.env.CLAUDE_DESK_CLI) return process.env.CLAUDE_DESK_CLI
-  try {
-    return execSync('which claude', { encoding: 'utf8' }).trim() || undefined
-  } catch {
-    return undefined
-  }
-})()
 
 export class Sessions {
   private agents: Agent[] = loadAgents()
@@ -498,6 +489,12 @@ export class Sessions {
       return
     }
     const msgs = this.getMessages(id)
+    // ponytail: only Claude Code runs today; other providers are stored on the agent and refused here. Add a runner per provider when needed.
+    if (agent.provider && agent.provider !== 'claude-code') {
+      this.push(agent, msgs, { id: randomUUID(), role: 'user', text, from, ts: Date.now() })
+      this.push(agent, msgs, { id: randomUUID(), role: 'result', text: `Provider "${agent.provider}" is not supported yet. Edit the agent and pick Claude Code.`, error: true, ts: Date.now() })
+      return
+    }
     const images = imageData?.length ? imageData.map(saveAttachment) : undefined
     this.push(agent, msgs, { id: randomUUID(), role: 'user', text, from: group ? group.author : from, group: !!group, routine, images, files: files?.length ? files : undefined, ts: Date.now() })
     this.emit({ type: 'status', agentId: id, running: true })

@@ -1,3 +1,11 @@
 node_modules
 out
 dist
+# built from helper/audiotap.swift via `npm run helper`
+resources/audiotap
+.DS_Store
+.env
+*.log
+
+# bundled from Homebrew whisper-cpp via `npm run whisper`
+resources/whisper

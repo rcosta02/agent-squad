@@ -14,9 +14,11 @@ type Props = {
   view: 'chat' | 'kb' | 'board' | 'meeting'
   recording: boolean
   boardUnread: number
+  me: string // user initials
+  onProfile: () => void
 }
 
-export default function Rail({ workspaces, currentId, unread, onSwitch, onNew, onMeeting, onBoard, onChat, onKb, view, recording, boardUnread }: Props) {
+export default function Rail({ workspaces, currentId, unread, onSwitch, onNew, onMeeting, onBoard, onChat, onKb, view, recording, boardUnread, me, onProfile }: Props) {
   return (
     <nav className="rail">
       <div className="rail-top" />
@@ -65,7 +67,9 @@ export default function Rail({ workspaces, currentId, unread, onSwitch, onNew, o
           </svg>
           {recording && <span className="rail-badge live">●</span>}
         </button>
-        <span className="initials">RC</span>
+        <button className="initials" title="Profile" onClick={onProfile}>
+          {me}
+        </button>
       </div>
     </nav>
   )

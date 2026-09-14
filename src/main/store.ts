@@ -1,11 +1,31 @@
 import { app } from 'electron'
 import fs from 'node:fs'
 import path from 'node:path'
-import type { Agent, GroupMsg, Msg, Plan, Routine, Task, Workspace } from '../shared/types'
+import type { Agent, GroupMsg, Msg, Plan, Profile, Routine, Task, Workspace } from '../shared/types'
 
 // ponytail: flat JSON files, no DB. Fine for hundreds of messages per agent.
+export const home = () => {
+  const d = process.env.AGENT_SQUAD_HOME || path.join(app.getPath('home'), '.agent-squad')
+  const old = path.join(app.getPath('home'), '.claude-desk')
+  if (!fs.existsSync(d) && fs.existsSync(old)) {
+    // App was called Claude Desk before: move the folder and repoint stored absolute paths (kbDir, attachments, meeting dirs).
+    fs.renameSync(old, d)
+    const walk = (p: string) => {
+      for (const e of fs.readdirSync(p, { withFileTypes: true })) {
+        const f = path.join(p, e.name)
+        if (e.isDirectory()) walk(f)
+        else if (e.name.endsWith('.json')) {
+          const s = fs.readFileSync(f, 'utf8')
+          if (s.includes(old + '/')) fs.writeFileSync(f, s.split(old + '/').join(d + '/'))
+        }
+      }
+    }
+    walk(d)
+  }
+  return d
+}
 const dir = () => {
-  const d = process.env.CLAUDE_DESK_HOME || path.join(app.getPath('home'), '.claude-desk')
+  const d = home()
   fs.mkdirSync(d, { recursive: true })
   return d
 }
@@ -51,3 +71,5 @@ export const saveTasks = (wsId: string, tasks: Task[]) => fs.writeFileSync(path.
 export const loadMessages = (id: string): Msg[] => readJson<Msg[]>(msgFile(id), [])
 export const saveMessages = (id: string, msgs: Msg[]) => fs.writeFileSync(msgFile(id), JSON.stringify(msgs))
 export const deleteMessages = (id: string) => fs.rmSync(msgFile(id), { force: true })
+export const loadProfile = (): Profile | null => readJson<Profile | null>(path.join(dir(), 'profile.json'), null)
+export const saveProfile = (p: Profile) => fs.writeFileSync(path.join(dir(), 'profile.json'), JSON.stringify(p, null, 2))

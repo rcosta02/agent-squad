@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import type { Agent, GroupMsg, Meeting, Msg, Routine, Task, Workspace } from '../../shared/types'
+import type { Agent, GroupMsg, Meeting, Msg, Profile, Routine, Task, Theme, Workspace } from '../../shared/types'
 import Chat from './components/Chat'
 import NewAgentModal, { type AgentInput } from './components/NewAgentModal'
+import OnboardingModal from './components/OnboardingModal'
 import Rail from './components/Rail'
 import Board from './components/Board'
 import GroupChat from './components/GroupChat'
@@ -11,12 +12,18 @@ import PlanView from './components/PlanView'
 import RoutinesModal from './components/RoutinesModal'
 import Sidebar from './components/Sidebar'
 import WorkspaceModal from './components/WorkspaceModal'
+import { initials } from './lib'
 
 const api = window.api
 
-type Modal = { mode: 'create' } | { mode: 'edit'; agentId: string } | { mode: 'ws-create' } | { mode: 'ws-edit' } | { mode: 'routines'; agentId: string } | { mode: 'kb' } | null
+type Modal = { mode: 'profile' } | { mode: 'create' } | { mode: 'edit'; agentId: string } | { mode: 'ws-create' } | { mode: 'ws-edit' } | { mode: 'routines'; agentId: string } | { mode: 'kb' } | null
 
-const WS_KEY = 'claude-desk.workspace'
+const WS_KEY = 'agent-squad.workspace'
+const applyPrefs = (theme: Theme = 'dark', zoom = 100) => {
+  document.documentElement.dataset.theme = theme
+  void api.setTheme(theme)
+  api.setZoom(zoom)
+}
 const readWs = () => {
   try {
     return localStorage.getItem(WS_KEY)
@@ -57,6 +64,7 @@ export default function App() {
   const [running, setRunning] = useState<Set<string>>(() => new Set())
   const [search, setSearch] = useState('')
   const [modal, setModal] = useState<Modal>(null)
+  const [profile, setProfile] = useState<Profile | null | undefined>(undefined) // undefined = loading
   const loaded = useRef<Set<string>>(new Set())
 
   const workspace = useMemo(() => workspaces.find((w) => w.id === workspaceId) ?? workspaces[0] ?? null, [workspaces, workspaceId])
@@ -93,6 +101,11 @@ export default function App() {
   // Initial load + event subscription.
   useEffect(() => {
     let alive = true
+    api.getProfile().then((p) => {
+      if (!alive) return
+      setProfile(p)
+      if (p) applyPrefs(p.theme, p.zoom)
+    })
     api.listWorkspaces().then((ws) => alive && setWorkspaces(ws))
     api.listAgents().then((list) => alive && setAgents(list))
     api.listRoutines().then((rs) => alive && setRoutines(rs))
@@ -314,6 +327,8 @@ export default function App() {
         view={showMeeting ? 'meeting' : showBoard ? 'board' : showKb ? 'kb' : 'chat'}
         recording={meeting?.status === 'recording' || meeting?.status === 'stopping'}
         boardUnread={workspace?.boardUnread ?? 0}
+        me={profile ? initials(`${profile.firstName} ${profile.lastName}`) : '?'}
+        onProfile={() => setModal({ mode: 'profile' })}
       />
       {!isBoard && (
       <Sidebar
@@ -392,9 +407,21 @@ export default function App() {
         <NewAgentModal
           key={modal.mode === 'edit' ? modal.agentId : 'create'}
           initial={editing}
+          providers={profile?.providers ?? ['claude-code']}
           onClose={closeModal}
           onSubmit={submitModal}
           onDelete={modal.mode === 'edit' ? deleteAgent : undefined}
+        />
+      )}
+      {(profile === null || modal?.mode === 'profile') && (
+        <OnboardingModal
+          initial={profile ?? undefined}
+          onPreview={applyPrefs}
+          onClose={profile ? () => (applyPrefs(profile.theme, profile.zoom), closeModal()) : undefined}
+          onSubmit={async (p) => {
+            setProfile(await api.saveProfile(p))
+            setModal(null)
+          }}
         />
       )}
     </div>

@@ -5,8 +5,10 @@ import path from 'node:path'
 import type { Event } from '../shared/types'
 import { Sessions } from './sessions'
 import { kbDelete, kbList, kbRead, kbWrite } from './kb'
+import { home, loadProfile, saveProfile } from './store'
+import { startUpdater } from './updater'
 import * as mcp from './mcp'
-import { Recorder, addToKb, dictate, whisperModels, deleteMeeting, listMeetings, readMeeting, readSummary, renameMeeting, summarizeInline } from './meetings'
+import { Recorder, addToKb, dictate, prefetchModel, whisperModels, deleteMeeting, listMeetings, readMeeting, readSummary, renameMeeting, summarizeInline } from './meetings'
 
 // GUI apps on macOS get a bare PATH; pull the user's shell PATH so `claude`, node, MCP servers resolve.
 try {
@@ -27,7 +29,7 @@ const createWindow = () => {
     minHeight: 500,
     titleBarStyle: 'hiddenInset',
     trafficLightPosition: { x: 16, y: 14 },
-    backgroundColor: '#1c1c1e',
+    backgroundColor: loadProfile()?.theme === 'light' ? '#ffffff' : '#1c1c1e',
     webPreferences: { preload: path.join(__dirname, '../preload/index.mjs'), sandbox: false }
   })
   if (process.env.ELECTRON_RENDERER_URL) win.loadURL(process.env.ELECTRON_RENDERER_URL)
@@ -110,7 +112,7 @@ ipcMain.handle('meeting:delete', (_, id) => deleteMeeting(id))
 ipcMain.handle('meeting:summarize', (_, id) => summarizeInline(id))
 ipcMain.handle('meeting:summary', (_, id) => readSummary(id))
 ipcMain.handle('meeting:kb', (_, id) => {
-  const wsId = (JSON.parse(fs.readFileSync(path.join(process.env.CLAUDE_DESK_HOME || path.join(app.getPath('home'), '.claude-desk'), 'meetings', id, 'meeting.json'), 'utf8')) as { workspaceId: string }).workspaceId
+  const wsId = (JSON.parse(fs.readFileSync(path.join(home(), 'meetings', id, 'meeting.json'), 'utf8')) as { workspaceId: string }).workspaceId
   const kb = sessions.kbDirOf(wsId)
   if (!kb) throw new Error('Workspace has no knowledge base')
   return addToKb(id, kb)
@@ -119,6 +121,9 @@ ipcMain.handle('meeting:rename', (_, id, title) => renameMeeting(id, title))
 ipcMain.handle('dictate', (_, wav, language) => dictate(wav, language, sessions.vocabFor()))
 ipcMain.handle('mic:access', () => systemPreferences.askForMediaAccess('microphone'))
 ipcMain.handle('shell:open', (_, url) => shell.openExternal(String(url)))
+ipcMain.handle('profile:get', () => loadProfile())
+ipcMain.handle('theme:set', (_, theme) => win?.setBackgroundColor(theme === 'light' ? '#ffffff' : '#1c1c1e'))
+ipcMain.handle('profile:save', (_, p) => (saveProfile(p), p))
 ipcMain.handle('clipboard:write', (_, text) => clipboard.writeText(String(text)))
 ipcMain.handle('dialog:folder', async () => {
   const r = await dialog.showOpenDialog({ properties: ['openDirectory', 'createDirectory'] })
@@ -144,7 +149,11 @@ ipcMain.handle('dialog:images', async () => {
   return r.canceled ? [] : r.filePaths.map(toDataUrl)
 })
 
-app.whenReady().then(createWindow)
+app.whenReady().then(() => {
+  createWindow()
+  startUpdater()
+  void prefetchModel()
+})
 // Always on: closing the window keeps the app (and routines) alive; ⌘Q quits.
 app.on('window-all-closed', () => {})
 app.on('activate', () => {

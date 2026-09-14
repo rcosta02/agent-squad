@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import type { Agent } from '../../../shared/types'
+import { PROVIDERS, type Agent, type Provider } from '../../../shared/types'
 import { COLORS, randomEmoji } from '../lib'
 import EmojiPicker from './EmojiPicker'
 
@@ -15,16 +15,17 @@ const MODELS: [string, string][] = [
   ['claude-haiku-4-5', 'Haiku 4.5']
 ]
 
-export type AgentInput = { name: string; emoji: string; color: string; cwd: string; autonomous: boolean; systemPrompt?: string; model?: string }
+export type AgentInput = { name: string; emoji: string; color: string; cwd: string; autonomous: boolean; systemPrompt?: string; model?: string; provider: Provider }
 
 type Props = {
   initial?: Agent
+  providers: Provider[] // configured in onboarding
   onClose: () => void
   onSubmit: (input: AgentInput) => void
   onDelete?: () => void
 }
 
-export default function NewAgentModal({ initial, onClose, onSubmit, onDelete }: Props) {
+export default function NewAgentModal({ initial, providers, onClose, onSubmit, onDelete }: Props) {
   const [name, setName] = useState(initial?.name ?? '')
   const [emoji, setEmoji] = useState(initial?.emoji ?? randomEmoji())
   const [emojiOpen, setEmojiOpen] = useState(false)
@@ -33,6 +34,7 @@ export default function NewAgentModal({ initial, onClose, onSubmit, onDelete }: 
   const [autonomous, setAutonomous] = useState(initial?.autonomous ?? false)
   const [systemPrompt, setSystemPrompt] = useState(initial?.systemPrompt ?? '')
   const [model, setModel] = useState(initial?.model ?? '')
+  const [provider, setProvider] = useState<Provider>(initial?.provider ?? providers[0] ?? 'claude-code')
   const [confirmDelete, setConfirmDelete] = useState(false)
 
   useEffect(() => {
@@ -53,7 +55,7 @@ export default function NewAgentModal({ initial, onClose, onSubmit, onDelete }: 
   const submit = () => {
     if (!valid) return
     const sp = systemPrompt.trim()
-    onSubmit({ name: name.trim(), emoji: emoji.trim(), color, cwd: cwd.trim(), autonomous, systemPrompt: sp ? sp : undefined, model: model || undefined })
+    onSubmit({ name: name.trim(), emoji: emoji.trim(), color, cwd: cwd.trim(), autonomous, systemPrompt: sp ? sp : undefined, model: model || undefined, provider })
   }
 
   return (
@@ -107,6 +109,19 @@ export default function NewAgentModal({ initial, onClose, onSubmit, onDelete }: 
           </div>
         </div>
 
+        {providers.length > 1 && (
+          <div className="field">
+            <label>Provider</label>
+            <select value={provider} onChange={(e) => setProvider(e.target.value as Provider)}>
+              {PROVIDERS.filter(([id]) => providers.includes(id) || id === provider).map(([id, label]) => (
+                <option key={id} value={id}>
+                  {label}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+        {provider === 'claude-code' && (
         <div className="field">
           <label>Model</label>
           <select value={model} onChange={(e) => setModel(e.target.value)}>
@@ -118,6 +133,7 @@ export default function NewAgentModal({ initial, onClose, onSubmit, onDelete }: 
             ))}
           </select>
         </div>
+        )}
 
         <label className="check">
           <input type="checkbox" checked={autonomous} onChange={(e) => setAutonomous(e.target.checked)} />

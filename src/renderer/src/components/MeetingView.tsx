@@ -33,20 +33,24 @@ export default function MeetingView({ workspace, agents, meeting, onBack, onOpen
   const [confirm, setConfirm] = useState(false)
   const pref = (k: string, d: string) => {
     try {
-      return localStorage.getItem('claude-desk.' + k) ?? d
+      return localStorage.getItem('agent-squad.' + k) ?? d
     } catch {
       return d
     }
   }
   const [language, setLanguage] = useState(() => pref('lang', 'auto'))
   const [model, setModel] = useState(() => pref('whisper', 'ggml-large-v3-turbo.bin'))
-  const [models, setModels] = useState<{ file: string; label: string; available: boolean }[]>([])
+  const [models, setModels] = useState<{ file: string; label: string; available: boolean; progress?: number }[]>([])
   useEffect(() => {
-    api.whisperModels().then(setModels)
+    let alive = true
+    const tick = () => api.whisperModels().then((m) => alive && setModels(m))
+    tick()
+    const t = setInterval(tick, 2000) // ponytail: poll while a model downloads; cheap fs.existsSync on the main side
+    return () => (alive = false, clearInterval(t))
   }, [api])
   const setPref = (k: string, v: string) => {
     try {
-      localStorage.setItem('claude-desk.' + k, v)
+      localStorage.setItem('agent-squad.' + k, v)
     } catch {}
   }
   const listRef = useRef<HTMLDivElement>(null)
@@ -150,7 +154,7 @@ export default function MeetingView({ workspace, agents, meeting, onBack, onOpen
                 <select className="rev-pick" value={model} onChange={(e) => (setModel(e.target.value), setPref('whisper', e.target.value))} title="Whisper model">
                   {models.map((m) => (
                     <option key={m.file} value={m.file} disabled={!m.available}>
-                      {m.label}{m.available ? '' : ' — downloading…'}
+                      {m.label}{m.available ? '' : m.progress != null ? ` — downloading ${m.progress}%` : ' — not downloaded yet'}
                     </option>
                   ))}
                 </select>

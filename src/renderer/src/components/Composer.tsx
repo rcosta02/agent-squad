@@ -113,19 +113,22 @@ export default function Composer({ agentName, agentId, running, pending, onClear
       setDictating('busy')
       let lang: string | undefined
       try {
-        lang = localStorage.getItem('claude-desk.lang') ?? undefined
+        lang = localStorage.getItem('agent-squad.lang') ?? undefined
       } catch {}
       const text = await window.api.dictate(wav, lang && lang !== 'auto' ? lang : undefined)
       if (text) setText((t) => (t.trim() ? t.replace(/\s*$/, ' ') : '') + text)
       ref.current?.focus()
     } catch (e) {
       console.error('dictation', e)
+      setDictErr(String((e as Error).message ?? e).replace(/^.*Error: /, ''))
+      setTimeout(() => setDictErr(''), 5000)
     }
     stopDictation.current = null
     setDictating('idle')
   }
   const ref = useRef<HTMLTextAreaElement>(null)
   const [text, setText] = useState('')
+  const [dictErr, setDictErr] = useState('')
   const [sel, setSel] = useState(0)
   // "@par" right before the caret → suggestions
   const caret = ref.current?.selectionStart ?? text.length
@@ -271,7 +274,7 @@ export default function Composer({ agentName, agentId, running, pending, onClear
           ref={ref}
           rows={1}
           value={text}
-          placeholder={planMode ? `Ask ${agentName} for a plan (read-only, needs your approval)` : `Message ${agentName}`}
+          placeholder={dictErr ? dictErr : planMode ? `Ask ${agentName} for a plan (read-only, needs your approval)` : `Message ${agentName}`}
           onChange={(e) => setText(e.target.value)}
           onKeyDown={onKey}
           onPaste={onPaste}

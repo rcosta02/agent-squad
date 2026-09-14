@@ -132,8 +132,8 @@ func startSystemTap() {
   guard st == noErr else { log("tap create failed: \(st) (needs System Audio Recording permission)"); return }
 
   let aggDesc: [String: Any] = [
-    kAudioAggregateDeviceNameKey as String: "claude-desk tap",
-    kAudioAggregateDeviceUIDKey as String: "claude-desk-tap-\(UUID().uuidString)",
+    kAudioAggregateDeviceNameKey as String: "agent-squad tap",
+    kAudioAggregateDeviceUIDKey as String: "agent-squad-tap-\(UUID().uuidString)",
     kAudioAggregateDeviceIsPrivateKey as String: true,
     kAudioAggregateDeviceTapAutoStartKey as String: true,
     kAudioAggregateDeviceTapListKey as String: [[kAudioSubTapUIDKey as String: desc.uuid.uuidString, kAudioSubTapDriftCompensationKey as String: true]]
