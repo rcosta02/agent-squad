@@ -208,6 +208,7 @@ export type Api = {
   micAccess(): Promise<boolean>
   meetingStart(workspaceId: string, title: string, opts?: { language?: string; model?: string }): Promise<Meeting>
   whisperModels(): Promise<{ file: string; label: string; available: boolean; progress?: number }[]> // progress = % while downloading
+  claudeModels(): Promise<{ id: string; label: string; other?: true }[]> // account's /model rows first, then (other) every served model the picker omits; hardcoded list alone if the CLI can't answer
   meetingStop(): Promise<Meeting | null> // stops and finishes transcription; nothing else happens
   meetingCurrent(): Promise<Meeting | null>
   meetingList(workspaceId: string): Promise<Meeting[]> // newest first

@@ -3,18 +3,6 @@ import { PROVIDERS, type Agent, type Provider } from '../../../shared/types'
 import { COLORS, randomEmoji } from '../lib'
 import EmojiPicker from './EmojiPicker'
 
-const MODELS: [string, string][] = [
-  ['claude-fable-5-1', 'Fable 5.1'],
-  ['claude-fable-5', 'Fable 5'],
-  ['claude-opus-5', 'Opus 5'],
-  ['claude-opus-4-8', 'Opus 4.8'],
-  ['claude-opus-4-7', 'Opus 4.7'],
-  ['claude-opus-4-6', 'Opus 4.6'],
-  ['claude-sonnet-5', 'Sonnet 5'],
-  ['claude-sonnet-4-6', 'Sonnet 4.6'],
-  ['claude-haiku-4-5', 'Haiku 4.5']
-]
-
 export type AgentInput = { name: string; emoji: string; color: string; cwd: string; autonomous: boolean; systemPrompt?: string; model?: string; provider: Provider }
 
 type Props = {
@@ -36,6 +24,11 @@ export default function NewAgentModal({ initial, providers, onClose, onSubmit, o
   const [model, setModel] = useState(initial?.model ?? '')
   const [provider, setProvider] = useState<Provider>(initial?.provider ?? providers[0] ?? 'claude-code')
   const [confirmDelete, setConfirmDelete] = useState(false)
+  const [models, setModels] = useState<{ id: string; label: string; other?: true }[]>([])
+
+  useEffect(() => {
+    window.api.claudeModels().then(setModels)
+  }, [])
 
   useEffect(() => {
     const onKey = (e: globalThis.KeyboardEvent) => {
@@ -126,11 +119,21 @@ export default function NewAgentModal({ initial, providers, onClose, onSubmit, o
           <label>Model</label>
           <select value={model} onChange={(e) => setModel(e.target.value)}>
             <option value="">Default (your Claude Code setting)</option>
-            {MODELS.map(([id, label]) => (
-              <option key={id} value={id}>
-                {label}
+            {model && !models.some((m) => m.id === model) && <option value={model}>{model}</option>}
+            {models.filter((m) => !m.other).map((m) => (
+              <option key={m.id} value={m.id}>
+                {m.label}
               </option>
             ))}
+            {models.some((m) => m.other) && (
+              <optgroup label="Other">
+                {models.filter((m) => m.other).map((m) => (
+                  <option key={m.id} value={m.id}>
+                    {m.label}
+                  </option>
+                ))}
+              </optgroup>
+            )}
           </select>
         </div>
         )}

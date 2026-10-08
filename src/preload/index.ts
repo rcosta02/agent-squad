@@ -58,6 +58,7 @@ const api: Api = {
   micAccess: () => ipcRenderer.invoke('mic:access'),
   meetingStart: (wsId, title, opts) => ipcRenderer.invoke('meeting:start', wsId, title, opts),
   whisperModels: () => ipcRenderer.invoke('whisper:models'),
+  claudeModels: () => ipcRenderer.invoke('claude:models'),
   meetingList: (wsId) => ipcRenderer.invoke('meeting:list', wsId),
   meetingRead: (id) => ipcRenderer.invoke('meeting:read', id),
   meetingSummarize: (id) => ipcRenderer.invoke('meeting:summarize', id),
