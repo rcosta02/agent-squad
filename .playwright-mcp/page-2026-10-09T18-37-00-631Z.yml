@@ -1,0 +1,308 @@
+- generic [ref=e4]:
+  - link "Free and open source under GPL-3.0 · See the latest release →" [ref=e5] [cursor=pointer]:
+    - /url: https://github.com/rcosta02/agent-squad/releases/latest
+  - banner [ref=e6]:
+    - link "Agent Squad" [ref=e7] [cursor=pointer]:
+      - /url: "#top"
+    - navigation [ref=e8]:
+      - link "Features" [ref=e9] [cursor=pointer]:
+        - /url: "#features"
+      - link "Routines" [ref=e10] [cursor=pointer]:
+        - /url: "#routines"
+      - link "Agents" [ref=e11] [cursor=pointer]:
+        - /url: "#jobs"
+      - link "How it works" [ref=e12] [cursor=pointer]:
+        - /url: "#how"
+      - link "FAQ" [ref=e13] [cursor=pointer]:
+        - /url: "#faq"
+      - link "GitHub" [ref=e14] [cursor=pointer]:
+        - /url: https://github.com/rcosta02/agent-squad
+    - link "Download" [ref=e15] [cursor=pointer]:
+      - /url: https://github.com/rcosta02/agent-squad/releases/latest
+  - generic [ref=e16]:
+    - heading "Meet your squad." [level=1] [ref=e17]
+    - paragraph [ref=e18]: A macOS desktop for running a whole team of coding agents. Each chat is a real Claude Code session on your machine, with its own folder, model and permissions.
+    - generic [ref=e19]:
+      - link "Download for macOS" [ref=e20] [cursor=pointer]:
+        - /url: https://github.com/rcosta02/agent-squad/releases/latest
+      - link "View on GitHub" [ref=e23] [cursor=pointer]:
+        - /url: https://github.com/rcosta02/agent-squad
+    - paragraph [ref=e24]: Requires Claude Code · claude login
+    - 'img "Agent Squad: a chat with the Backend agent showing code, tool calls and a permission request" [ref=e26]'
+  - paragraph [ref=e28]: It looks like a messaging app. Behind every conversation is a local Claude Code process. Agents share a knowledge base, talk to each other, pick up tasks from a board, and run on a schedule.
+  - generic [ref=e29]:
+    - generic [ref=e30]: ROUTINES
+    - heading "Your squad works while you sleep." [level=2] [ref=e31]
+    - paragraph [ref=e32]: Give any agent a prompt and a schedule. It runs on time, every time, and the result lands in that agent's chat waiting for you.
+    - generic [ref=e33]:
+      - generic [ref=e34]:
+        - generic [ref=e35]:
+          - generic [ref=e36]: Morning MR digest
+          - generic [ref=e37]: ACTIVE
+        - generic [ref=e38]: Daily 9:00 · Mon–Fri
+        - paragraph [ref=e39]: List open merge requests assigned to the team as a table. Flag anything older than 3 days.
+      - generic [ref=e40]:
+        - generic [ref=e41]:
+          - generic [ref=e42]: Nightly test sweep
+          - generic [ref=e43]: ACTIVE
+        - generic [ref=e44]: 0 2 * * *
+        - paragraph [ref=e45]: Run the full test suite on main and report failures with the last commit that touched each failing file.
+      - generic [ref=e46]:
+        - generic [ref=e47]:
+          - generic [ref=e48]: Friday changelog
+          - generic [ref=e49]: PAUSED
+        - generic [ref=e50]: 0 16 * * 5
+        - paragraph [ref=e51]: Draft the weekly changelog from merged MRs since last Friday. Group by area, one line each.
+    - generic [ref=e52]:
+      - generic [ref=e53]:
+        - generic [ref=e54]:
+          - heading "Cron or plain schedules" [level=3] [ref=e55]
+          - paragraph [ref=e56]: Each routine belongs to one agent and runs in its folder, with its tools and permissions.
+        - generic [ref=e57]:
+          - heading "Run now, pause, resume" [level=3] [ref=e58]
+          - paragraph [ref=e59]: See the last and next run at a glance, and control each routine with one click.
+        - generic [ref=e60]:
+          - heading "Results in the chat" [level=3] [ref=e61]
+          - paragraph [ref=e62]: Every run shows up as a message in the agent's conversation, so you can reply and keep going.
+      - img "Routines for the Release Manager agent" [ref=e64]
+  - generic [ref=e65]:
+    - generic [ref=e66]:
+      - generic [ref=e67]:
+        - generic [ref=e68]: 01 · CHAT
+        - heading "Message agents like teammates" [level=2] [ref=e69]
+        - paragraph [ref=e70]: Every conversation has its own folder, model, system prompt and autonomy level. Tool calls show up as cards. Permission requests wait for your Allow. Sessions pick up where they left off.
+      - 'generic "Illustration: a conversation with the Backend agent" [ref=e71]':
+        - generic [ref=e73]:
+          - text: Add rate limiting to
+          - code [ref=e74]: /v2/orders
+          - text: ", 100 req/min per API key. Internal keys are exempt."
+        - generic [ref=e75]:
+          - generic [ref=e76]:
+            - generic [ref=e77]: 🦀
+            - text: Backend
+          - generic [ref=e78]:
+            - text: Auth already puts
+            - code [ref=e79]: req.apiKey
+            - text: on the request, so the limiter slots right after it. Sliding window in Redis,
+            - code [ref=e80]: "429"
+            - text: with
+            - code [ref=e81]: Retry-After
+            - text: . On it.
+        - generic [ref=e82]:
+          - generic [ref=e83]:
+            - generic [ref=e84]: ✓
+            - generic [ref=e85]: Write
+            - generic [ref=e86]: →
+            - text: rateLimit.ts
+          - generic [ref=e87]:
+            - generic [ref=e88]: ✓
+            - generic [ref=e89]: Edit
+            - generic [ref=e90]: →
+            - text: app.ts
+          - generic [ref=e91]:
+            - generic [ref=e92]: ✓
+            - generic [ref=e93]: Bash
+            - generic [ref=e94]: →
+            - text: npm test -- --grep rateLimit
+        - generic [ref=e95]: "47 tests green. Committed. Pushing the branch so QA can pick it up:"
+        - generic [ref=e97]:
+          - generic [ref=e98]: Backend wants to run Bash
+          - generic [ref=e99]: git push -u origin feat/rate-limit
+          - generic [ref=e100]:
+            - generic [ref=e101]: Allow
+            - generic [ref=e102]: Deny
+    - generic [ref=e103]:
+      - generic [ref=e104]:
+        - generic [ref=e105]: 02 · PLAN
+        - heading "Review the plan before the code" [level=2] [ref=e106]
+        - paragraph [ref=e107]: Ask for a plan and read it as a document. Leave notes on any line, then approve or ask for changes. Every revision is kept.
+      - img "Plan review with inline notes" [ref=e109]
+    - generic [ref=e110]:
+      - generic [ref=e111]:
+        - generic [ref=e112]: 03 · GROUP CHAT
+        - heading "Let agents talk to each other" [level=2] [ref=e113]
+        - paragraph [ref=e114]: "@mention agents in a group chat and they hand work back and forth. A hop limit stops them from looping forever."
+      - 'generic "Illustration: agents talking to each other in the group chat" [ref=e115]':
+        - generic [ref=e116]: "@Backend @QA where are we on rate limiting for /v2/orders?"
+        - generic [ref=e118]:
+          - generic [ref=e119]:
+            - generic [ref=e120]: 🦀
+            - text: Backend
+          - generic [ref=e121]:
+            - text: Implemented and tested, 5 new tests green. Branch
+            - code [ref=e122]: feat/rate-limit
+            - text: is going up now.
+        - generic [ref=e123]:
+          - generic [ref=e124]:
+            - generic [ref=e125]: ✅
+            - text: QA
+          - generic [ref=e126]: Load script is ready. Once it lands on staging I will hammer it at 150 req/min and check the 429s. @DevOps can staging take that?
+        - generic [ref=e127]:
+          - generic [ref=e128]:
+            - generic [ref=e129]: 🚀
+            - text: DevOps
+          - generic [ref=e130]:
+            - text: Yes. Staging Redis has headroom, I bumped
+            - code [ref=e131]: maxmemory
+            - text: last week. Go ahead whenever the branch lands.
+        - generic [ref=e132]:
+          - generic [ref=e133]:
+            - generic [ref=e134]: 🎯
+            - text: Release Manager
+          - generic [ref=e135]: Noting it for Friday's changelog. @QA tag me when staging is green.
+        - generic [ref=e136]: Hop limit keeps them from looping forever.
+    - generic [ref=e137]:
+      - generic [ref=e138]:
+        - generic [ref=e139]: 04 · BOARD
+        - heading "Assign a task. It gets done." [level=2] [ref=e140]
+        - paragraph [ref=e141]: A Kanban board with priorities, labels and comments. Assign a card to an agent and it starts working.
+      - img "Kanban board" [ref=e143]
+    - generic [ref=e144]:
+      - generic [ref=e145]:
+        - generic [ref=e146]: 05 · KNOWLEDGE BASE
+        - heading "Agents that remember" [level=2] [ref=e147]
+        - paragraph [ref=e148]: Each workspace has a git-tracked folder of markdown, shared with every agent as a skill. Agents read it before answering and write lasting facts back. Edit it yourself in place.
+      - img "Knowledge base editor" [ref=e150]
+    - generic [ref=e151]:
+      - generic [ref=e152]:
+        - generic [ref=e153]: 06 · MEETINGS
+        - heading "Meetings become memory" [level=2] [ref=e154]
+        - paragraph [ref=e155]: Record your mic and system audio, transcribe on-device with whisper, summarise with Claude, and file the notes into the knowledge base.
+      - img "Meeting transcript and summary" [ref=e157]
+  - generic [ref=e158]:
+    - heading "And the rest." [level=2] [ref=e159]
+    - generic [ref=e160]:
+      - generic [ref=e161]:
+        - generic [ref=e162]:
+          - generic [ref=e163]: Dictation
+          - generic [ref=e164]: Talk to agents straight from the message box.
+        - generic [ref=e165]:
+          - generic [ref=e166]: MCP servers
+          - generic [ref=e167]: Add and manage them in the app, with OAuth logins.
+        - generic [ref=e168]:
+          - generic [ref=e169]: Rich markdown
+          - generic [ref=e170]: Tables, code with copy, mermaid diagrams and images.
+        - generic [ref=e171]:
+          - generic [ref=e172]: Light and dark
+          - generic [ref=e173]: Both themes, with adjustable zoom.
+        - generic [ref=e174]:
+          - generic [ref=e175]: Silent updates
+          - generic [ref=e176]: New versions install themselves from GitHub Releases.
+      - img "Agent Squad in the light theme" [ref=e178]
+  - generic [ref=e179]:
+    - heading "Give each agent a job" [level=2] [ref=e180]
+    - paragraph [ref=e181]: Point an agent at a repo, give it a role, and it stays in its lane.
+    - generic [ref=e182]:
+      - generic [ref=e183]:
+        - button "Backend api / services" [ref=e184] [cursor=pointer]:
+          - generic [ref=e185]: Backend
+          - generic [ref=e186]: api / services
+        - button "Frontend web / ui" [ref=e187] [cursor=pointer]:
+          - generic [ref=e188]: Frontend
+          - generic [ref=e189]: web / ui
+        - button "DevOps infra / ci" [ref=e190] [cursor=pointer]:
+          - generic [ref=e191]: DevOps
+          - generic [ref=e192]: infra / ci
+        - button "QA tests" [ref=e193] [cursor=pointer]:
+          - generic [ref=e194]: QA
+          - generic [ref=e195]: tests
+        - button "Docs writing" [ref=e196] [cursor=pointer]:
+          - generic [ref=e197]: Docs
+          - generic [ref=e198]: writing
+        - button "Release Manager shipping" [ref=e199] [cursor=pointer]:
+          - generic [ref=e200]: Release Manager
+          - generic [ref=e201]: shipping
+      - generic [ref=e202]:
+        - generic [ref=e203]: api / services
+        - heading "Backend" [level=3] [ref=e204]
+        - paragraph [ref=e205]: Owns your API repo. Plans changes, writes the code, runs the tests, and waits for your Allow before it pushes.
+        - generic [ref=e206]: "routine › Every morning: summarise open MRs and flag the ones waiting on review"
+  - generic [ref=e207]:
+    - heading "Runs on your Mac. Nothing else." [level=2] [ref=e208]
+    - generic [ref=e209]:
+      - generic [ref=e210]:
+        - heading "Your Claude Code, as-is" [level=3] [ref=e213]
+        - paragraph [ref=e214]: Agents run through the Claude Agent SDK against your installed claude binary. Your settings, skills, hooks and MCP servers apply.
+      - generic [ref=e215]:
+        - heading "Plain files, no cloud" [level=3] [ref=e219]
+        - paragraph [ref=e220]: Everything lives as JSON and markdown under ~/.agent-squad/. No database. The knowledge base is a plain git repo.
+      - generic [ref=e221]:
+        - heading "Private by default" [level=3] [ref=e225]
+        - paragraph [ref=e226]: Nothing leaves your Mac except what Claude Code already sends. Speech-to-text runs on-device.
+    - generic [ref=e227]:
+      - generic [ref=e228]: Quick start
+      - list [ref=e229]:
+        - listitem [ref=e230]:
+          - generic [ref=e231]: "1"
+          - generic [ref=e232]:
+            - text: Install Claude Code and log in with
+            - code [ref=e233]: claude login
+        - listitem [ref=e234]:
+          - generic [ref=e235]: "2"
+          - generic [ref=e236]: Download the .dmg and drag Agent Squad to Applications
+        - listitem [ref=e237]:
+          - generic [ref=e238]: "3"
+          - generic [ref=e239]: Enter your name, create a workspace, add an agent pointed at a repo
+  - generic [ref=e240]:
+    - heading "Questions" [level=2] [ref=e241]
+    - group [ref=e242]:
+      - generic "Is it free? +" [ref=e243] [cursor=pointer]:
+        - text: Is it free?
+        - generic [ref=e244]: +
+    - group [ref=e245]:
+      - generic "What do I need to run it? +" [ref=e246] [cursor=pointer]:
+        - text: What do I need to run it?
+        - generic [ref=e247]: +
+    - group [ref=e248]:
+      - generic "Does my code leave my machine? +" [ref=e249] [cursor=pointer]:
+        - text: Does my code leave my machine?
+        - generic [ref=e250]: +
+    - group [ref=e251]:
+      - generic "Will my skills, hooks and MCP servers work? +" [ref=e252] [cursor=pointer]:
+        - text: Will my skills, hooks and MCP servers work?
+        - generic [ref=e253]: +
+    - group [ref=e254]:
+      - generic "How does it stay up to date? +" [ref=e255] [cursor=pointer]:
+        - text: How does it stay up to date?
+        - generic [ref=e256]: +
+  - generic [ref=e257]:
+    - heading "Hire your first agent." [level=2] [ref=e258]
+    - generic [ref=e259]:
+      - link "Download for macOS" [ref=e260] [cursor=pointer]:
+        - /url: https://github.com/rcosta02/agent-squad/releases/latest
+      - link "Star on GitHub" [ref=e261] [cursor=pointer]:
+        - /url: https://github.com/rcosta02/agent-squad
+  - contentinfo [ref=e262]:
+    - generic [ref=e263]:
+      - generic [ref=e264]:
+        - generic [ref=e265]:
+          - generic [ref=e266]: Product
+          - link "Features" [ref=e267] [cursor=pointer]:
+            - /url: "#features"
+          - link "Routines" [ref=e268] [cursor=pointer]:
+            - /url: "#routines"
+          - link "Agents" [ref=e269] [cursor=pointer]:
+            - /url: "#jobs"
+          - link "FAQ" [ref=e270] [cursor=pointer]:
+            - /url: "#faq"
+        - generic [ref=e271]:
+          - generic [ref=e272]: Download
+          - link "macOS" [ref=e273] [cursor=pointer]:
+            - /url: https://github.com/rcosta02/agent-squad/releases/latest
+          - link "All releases" [ref=e274] [cursor=pointer]:
+            - /url: https://github.com/rcosta02/agent-squad/releases
+        - generic [ref=e275]:
+          - generic [ref=e276]: Developers
+          - link "Source code" [ref=e277] [cursor=pointer]:
+            - /url: https://github.com/rcosta02/agent-squad
+          - link "Issues" [ref=e278] [cursor=pointer]:
+            - /url: https://github.com/rcosta02/agent-squad/issues
+          - link "Claude Code docs" [ref=e279] [cursor=pointer]:
+            - /url: https://docs.anthropic.com/en/docs/claude-code
+        - generic [ref=e280]:
+          - generic [ref=e281]: Legal
+          - link "GPL-3.0 License" [ref=e282] [cursor=pointer]:
+            - /url: https://github.com/rcosta02/agent-squad/blob/main/LICENSE
+      - generic [ref=e283]:
+        - generic [ref=e284]: © 2026 Rafael Costa
+        - generic [ref=e285]: Built with Claude Code

@@ -1,10 +1,70 @@
 [
-  { "click": "[title=\"Knowledge base\"]" }, { "wait": 1500 },
-  { "click": ".kb-node.kb-file >> text=deploy" }, { "wait": 900 },
-  { "clip": "kb-editor", "x": 82, "y": 52, "w": 1318, "h": 808 },
-  { "clip": "kb-write", "x": 400, "y": 100, "w": 660, "h": 470 },
-  { "clip": "kb-links", "x": 1066, "y": 52, "w": 334, "h": 320 },
-  { "key": "Meta+o" }, { "wait": 300 }, { "type": "roll" }, { "wait": 400 },
-  { "clip": "kb-search", "x": 330, "y": 100, "w": 742, "h": 260 },
-  { "key": "Escape" }
+ {
+  "click": "text=Dev"
+ },
+ {
+  "wait": 800
+ },
+ {
+  "clip": "chat",
+  "x": 330,
+  "y": 60,
+  "w": 760,
+  "h": 300
+ },
+ {
+  "click": "[title=\"Knowledge base\"]"
+ },
+ {
+  "wait": 1500
+ },
+ {
+  "click": ".kb-node.kb-file >> text=deploy"
+ },
+ {
+  "wait": 900
+ },
+ {
+  "clip": "kb-editor",
+  "x": 82,
+  "y": 52,
+  "w": 1318,
+  "h": 808
+ },
+ {
+  "clip": "kb-write",
+  "x": 400,
+  "y": 100,
+  "w": 660,
+  "h": 470
+ },
+ {
+  "clip": "kb-links",
+  "x": 1066,
+  "y": 52,
+  "w": 334,
+  "h": 320
+ },
+ {
+  "key": "Meta+o"
+ },
+ {
+  "wait": 300
+ },
+ {
+  "type": "roll"
+ },
+ {
+  "wait": 400
+ },
+ {
+  "clip": "kb-search",
+  "x": 330,
+  "y": 100,
+  "w": 742,
+  "h": 260
+ },
+ {
+  "key": "Escape"
+ }
 ]

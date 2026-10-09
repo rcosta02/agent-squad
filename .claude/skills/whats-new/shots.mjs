@@ -19,27 +19,37 @@ const IMG = path.join(APP, 'src/renderer/src/whatsnew/img')
 const verify = process.argv.includes('--verify-dialog')
 const stepsFile = process.argv.slice(2).find((a) => !a.startsWith('--'))
 
-// scratch home: real agents/workspaces/profile (so the UI looks lived-in) but a bundled showcase vault for the KB
+// Scratch home built entirely from dummy data. Nothing is read from ~/.agent-squad: marketing images must never show real work.
 fs.rmSync(SCRATCH, { recursive: true, force: true })
 fs.mkdirSync(path.join(HOME, 'kb'), { recursive: true })
-const real = process.env.AGENT_SQUAD_HOME || path.join(os.homedir(), '.agent-squad')
-for (const f of fs.readdirSync(real)) if (f.endsWith('.json')) fs.copyFileSync(path.join(real, f), path.join(HOME, f))
 const vault = path.join(HOME, 'kb', 'showcase')
 fs.cpSync(path.join(SKILL, 'showcase-vault'), vault, { recursive: true })
 execSync('git init -q && git add -A && git commit -qm "kb: init"', { cwd: vault, stdio: 'ignore' })
-const wsFile = path.join(HOME, 'workspaces.json')
-const ws = JSON.parse(fs.readFileSync(wsFile, 'utf8'))
-if (ws[0]) {
-  ws[0].kbDir = vault
-  ws[0].name = 'Squad'
-}
-fs.writeFileSync(wsFile, JSON.stringify(ws))
-const profileFile = path.join(HOME, 'profile.json')
-const profile = JSON.parse(fs.readFileSync(profileFile, 'utf8'))
-profile.theme = 'dark'
-if (verify) delete profile.seenVersion
-else profile.seenVersion = JSON.parse(fs.readFileSync(path.join(APP, 'package.json'), 'utf8')).version // no dialog in the way of captures
-fs.writeFileSync(profileFile, JSON.stringify(profile))
+const version = JSON.parse(fs.readFileSync(path.join(APP, 'package.json'), 'utf8')).version
+const now = Date.now()
+const ws = { id: 'ws-demo', name: 'Squad', emoji: '🚀', kbDir: vault }
+const agent = (id, name, emoji, color, preview, minsAgo) => ({ id, workspaceId: ws.id, name, emoji, color, cwd: '/Users/alex/code/storefront', autonomous: false, provider: 'claude-code', updatedAt: now - minsAgo * 60000, preview })
+const agents = [
+  agent('a-architect', 'Architect', '🏗️', '#5e5ce6', 'Proposed splitting checkout into its own service; plan attached.', 12),
+  agent('a-dev', 'Dev', '🚀', '#0a84ff', 'Pushed the fix and opened MR !412 — ready for review.', 35),
+  agent('a-qa', 'QA', '🧪', '#30d158', 'All 212 e2e specs green on the release branch.', 120),
+  agent('a-writer', 'Writer', '✍️', '#ff9f0a', 'Drafted the 2.14 changelog in the knowledge base.', 400)
+]
+const t = (m) => now - m * 60000
+const devChat = [
+  { id: 'm1', role: 'user', text: 'The cart total is off by one cent when a coupon is applied. Can you find it and fix it?', ts: t(40) },
+  { id: 'm2', role: 'tool', toolUseId: 't1', name: 'Grep', input: { pattern: 'applyCoupon', path: 'src/cart' }, output: 'src/cart/total.ts:42: export function applyCoupon(total, coupon) {', done: true, ts: t(39) },
+  { id: 'm3', role: 'tool', toolUseId: 't2', name: 'Read', input: { file_path: 'src/cart/total.ts' }, output: '…', done: true, ts: t(39) },
+  { id: 'm4', role: 'assistant', text: 'Found it. `applyCoupon` rounds the discount before subtracting, so a 15% coupon on $19.99 drops a cent. Rounding once, after the subtraction, fixes it.\n\n- Patched `src/cart/total.ts`\n- Added a regression test with the $19.99 case\n- Pushed to `fix/coupon-rounding` and opened MR !412\n\nWant me to ask QA to run the checkout suite against it?', ts: t(36) },
+  { id: 'm5', role: 'result', text: 'Done', costUsd: 0.18, durationMs: 212000, ts: t(36) }
+]
+fs.writeFileSync(path.join(HOME, 'workspaces.json'), JSON.stringify([ws], null, 2))
+fs.writeFileSync(path.join(HOME, 'agents.json'), JSON.stringify(agents, null, 2))
+fs.writeFileSync(path.join(HOME, 'messages-a-dev.json'), JSON.stringify(devChat))
+fs.writeFileSync(path.join(HOME, 'routines.json'), '[]')
+const profile = { firstName: 'Alex', lastName: 'Rivera', providers: ['claude-code'], theme: 'dark', zoom: 100 }
+if (!verify) profile.seenVersion = version // no dialog in the way of captures
+fs.writeFileSync(path.join(HOME, 'profile.json'), JSON.stringify(profile))
 
 async function launch() {
   const app = await electron.launch({
