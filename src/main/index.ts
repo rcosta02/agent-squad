@@ -18,7 +18,10 @@ try {
 } catch {}
 
 let win: BrowserWindow | null = null
-const emit = (e: Event) => win?.webContents.send('event', e)
+// Timers (KB watcher debounce, updater) can fire after the window is gone; sending then throws "Object has been destroyed".
+const emit = (e: Event) => {
+  if (win && !win.isDestroyed()) win.webContents.send('event', e)
+}
 const sessions = new Sessions(emit)
 const recorder = new Recorder((meeting) => emit({ type: 'meeting', meeting }))
 
@@ -35,6 +38,10 @@ const createWindow = () => {
   })
   if (process.env.ELECTRON_RENDERER_URL) win.loadURL(process.env.ELECTRON_RENDERER_URL)
   else win.loadFile(path.join(__dirname, '../renderer/index.html'))
+  win.on('closed', () => {
+    stopKbWatchers()
+    win = null
+  })
 }
 
 ipcMain.handle('workspaces:list', () => sessions.listWorkspaces())
@@ -91,6 +98,10 @@ ipcMain.handle('kb:rename', (_, wsId, from, to) => kbRename(sessions.kbDir(wsId)
 ipcMain.handle('kb:mkdir', (_, wsId, rel) => kbMkdir(sessions.kbDir(wsId), rel))
 ipcMain.handle('kb:readAll', (_, wsId) => kbReadAll(sessions.kbDir(wsId)))
 const kbWatchers = new Map<string, () => void>()
+const stopKbWatchers = () => {
+  for (const stop of kbWatchers.values()) stop()
+  kbWatchers.clear()
+}
 ipcMain.handle('kb:watch', (_, wsId, on) => {
   kbWatchers.get(wsId)?.()
   kbWatchers.delete(wsId)
