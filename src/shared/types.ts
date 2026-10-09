@@ -151,6 +151,7 @@ export type Event =
   | { type: 'mcpAuthUrl'; url: string }
   | { type: 'meeting'; meeting: Meeting }
   | { type: 'taskDeleted'; taskId: string; workspaceId: string }
+  | { type: 'kbChanged'; workspaceId: string } // something in the KB folder changed on disk (agent edit, external editor)
 
 export type Api = {
   listWorkspaces(): Promise<Workspace[]>
@@ -195,8 +196,14 @@ export type Api = {
   openKb(workspaceId: string): Promise<void> // reveal the workspace knowledge base in Finder
   kbList(workspaceId: string): Promise<string[]> // relative paths of .md files
   kbRead(workspaceId: string, rel: string): Promise<string>
-  kbWrite(workspaceId: string, rel: string, content: string): Promise<void> // writes + git commit
+  kbWrite(workspaceId: string, rel: string, content: string): Promise<void> // writes only; kbCommit commits
   kbDelete(workspaceId: string, rel: string): Promise<void>
+  kbCommit(workspaceId: string): Promise<void> // git commit whatever is pending
+  kbRename(workspaceId: string, from: string, to: string): Promise<string[]> // note or folder; rewrites [[links]]; returns touched pages
+  kbMkdir(workspaceId: string, rel: string): Promise<void>
+  kbReadAll(workspaceId: string): Promise<{ rel: string; content: string }[]>
+  kbWatch(workspaceId: string, on: boolean): Promise<void> // emits kbChanged while on
+  kbUrl(workspaceId: string, rel: string): string // kb:// URL for images in notes
   copy(text: string): Promise<void> // system clipboard
   mcpConfigured(agentId: string): Promise<McpServerInfo[]>
   mcpAdd(agentId: string, input: { name: string; transport: 'http' | 'sse' | 'stdio'; target: string; args?: string[]; env?: Record<string, string>; headers?: Record<string, string>; scope: 'user' | 'local' | 'project' }): Promise<void>

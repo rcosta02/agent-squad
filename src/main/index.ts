@@ -1,10 +1,10 @@
-import { app, BrowserWindow, clipboard, dialog, ipcMain, shell, systemPreferences } from 'electron'
+import { app, BrowserWindow, clipboard, dialog, ipcMain, net, protocol, shell, systemPreferences } from 'electron'
 import { execSync } from 'node:child_process'
 import fs from 'node:fs'
 import path from 'node:path'
 import type { Event } from '../shared/types'
 import { Sessions } from './sessions'
-import { kbDelete, kbList, kbRead, kbWrite } from './kb'
+import { kbCommit, kbDelete, kbList, kbMkdir, kbRead, kbReadAll, kbRename, kbWrite, watchKb } from './kb'
 import { home, loadProfile, saveProfile } from './store'
 import { checkForUpdates, startUpdater } from './updater'
 import { listModels } from './models'
@@ -86,6 +86,16 @@ ipcMain.handle('kb:list', (_, wsId) => kbList(sessions.kbDir(wsId)))
 ipcMain.handle('kb:read', (_, wsId, rel) => kbRead(sessions.kbDir(wsId), rel))
 ipcMain.handle('kb:write', (_, wsId, rel, content) => kbWrite(sessions.kbDir(wsId), rel, content))
 ipcMain.handle('kb:delete', (_, wsId, rel) => kbDelete(sessions.kbDir(wsId), rel))
+ipcMain.handle('kb:commit', (_, wsId) => kbCommit(sessions.kbDir(wsId)))
+ipcMain.handle('kb:rename', (_, wsId, from, to) => kbRename(sessions.kbDir(wsId), from, to))
+ipcMain.handle('kb:mkdir', (_, wsId, rel) => kbMkdir(sessions.kbDir(wsId), rel))
+ipcMain.handle('kb:readAll', (_, wsId) => kbReadAll(sessions.kbDir(wsId)))
+const kbWatchers = new Map<string, () => void>()
+ipcMain.handle('kb:watch', (_, wsId, on) => {
+  kbWatchers.get(wsId)?.()
+  kbWatchers.delete(wsId)
+  if (on) kbWatchers.set(wsId, watchKb(sessions.kbDir(wsId), () => emit({ type: 'kbChanged', workspaceId: wsId })))
+})
 let authCtl: { kill: () => void; write: (s: string) => void } | null = null
 ipcMain.handle('mcp:configured', (_, agentId) => mcp.configured(sessions.cwdOf(agentId)))
 ipcMain.handle('mcp:add', (_, agentId, input) => mcp.add(input, sessions.cwdOf(agentId)))
@@ -153,7 +163,16 @@ ipcMain.handle('dialog:images', async () => {
   return r.canceled ? [] : r.filePaths.map(toDataUrl)
 })
 
+// kb://<workspaceId>/<rel> serves images and attachments referenced from notes.
+protocol.registerSchemesAsPrivileged([{ scheme: 'kb', privileges: { standard: true, secure: true, supportFetchAPI: true } }])
 app.whenReady().then(() => {
+  protocol.handle('kb', (req) => {
+    const u = new URL(req.url)
+    const dir = sessions.kbDir(u.hostname)
+    const abs = path.resolve(dir, decodeURIComponent(u.pathname.slice(1)))
+    if (!abs.startsWith(dir + path.sep)) return new Response('forbidden', { status: 403 })
+    return net.fetch('file://' + abs)
+  })
   createWindow()
   startUpdater()
   void prefetchModel()

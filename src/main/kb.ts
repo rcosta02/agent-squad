@@ -88,45 +88,4 @@ export function readIndex(dir: string, maxChars = 6000): string {
 }
 
 // ---------- user-facing file access (renderer editor) ----------
-const SKIP = new Set(['.git', '.claude-plugin', 'skills', 'node_modules'])
-const safe = (dir: string, rel: string) => {
-  const abs = path.resolve(dir, rel)
-  if (!abs.startsWith(dir + path.sep) || !abs.endsWith('.md')) throw new Error('Invalid path')
-  return abs
-}
-
-export function kbList(dir: string): string[] {
-  const out: string[] = []
-  const walk = (d: string) => {
-    for (const e of fs.readdirSync(d, { withFileTypes: true })) {
-      if (SKIP.has(e.name) || e.name.startsWith('.')) continue
-      const p = path.join(d, e.name)
-      if (e.isDirectory()) walk(p)
-      else if (e.name.endsWith('.md')) out.push(path.relative(dir, p))
-    }
-  }
-  walk(dir)
-  // README first, then top-level pages, then folders alphabetically
-  return out.sort((a, b) => (a === 'README.md' ? -1 : b === 'README.md' ? 1 : (a.includes('/') ? 1 : 0) - (b.includes('/') ? 1 : 0) || a.localeCompare(b)))
-}
-
-export const kbRead = (dir: string, rel: string) => fs.readFileSync(safe(dir, rel), 'utf8')
-
-const commit = (dir: string, msg: string) => {
-  try {
-    execSync(`git add -A && git commit -qm ${JSON.stringify(msg)} --no-verify`, { cwd: dir, stdio: 'ignore' })
-  } catch {} // nothing to commit, or git missing: file is saved regardless
-}
-
-export function kbWrite(dir: string, rel: string, content: string) {
-  const abs = safe(dir, rel)
-  fs.mkdirSync(path.dirname(abs), { recursive: true })
-  fs.writeFileSync(abs, content)
-  commit(dir, `kb: edit ${rel} (user)`)
-}
-
-export function kbDelete(dir: string, rel: string) {
-  if (rel === 'README.md') throw new Error('README.md is the index; edit it instead')
-  fs.rmSync(safe(dir, rel), { force: true })
-  commit(dir, `kb: delete ${rel} (user)`)
-}
+export { kbList, kbRead, kbReadAll, kbWrite, kbCommit, kbDelete, kbMkdir, kbRename, watchKb } from './kbfs'

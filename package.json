@@ -6,7 +6,7 @@
   "type": "module",
   "scripts": {
     "dev": "electron-vite dev",
-    "test": "node --experimental-strip-types src/main/history.test.ts",
+    "test": "for t in $(find src -name '*.test.ts'); do node --experimental-strip-types $t || exit 1; done",
     "build": "electron-vite build",
     "start": "electron-vite build && open -n ./node_modules/electron/dist/Electron.app --args \"$PWD\"",
     "helper": "xcrun swiftc -O -swift-version 5 helper/audiotap.swift -o resources/audiotap -framework AVFoundation -framework CoreAudio",
