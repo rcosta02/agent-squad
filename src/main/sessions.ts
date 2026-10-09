@@ -4,6 +4,7 @@ import { randomUUID } from 'node:crypto'
 import { app } from 'electron'
 import type { Agent, Annotation, Event, GroupMsg, Msg, Plan, Routine, Task, TaskStatus, Workspace } from '../shared/types'
 import { claudeBin } from './cli'
+import { readHistory, searchHistory } from './history'
 import { loadAgents, loadGroup, loadMessages, loadPlan, loadRoutines, loadTasks, loadWorkspaces, saveAgents, saveAttachment, saveGroup, saveMessages, savePlan, saveRoutines, saveTasks, saveWorkspaces, deleteMessages } from './store'
 import { cronMatches, isValidCron, nextRun } from './cron'
 import { defaultKbDir, ensureKb, readIndex } from './kb'
@@ -687,6 +688,20 @@ export class Sessions {
             return { content: [{ type: 'text', text: `Routine "${r.name}" is now ${status}.` }] }
           },
           { alwaysLoad: true }
+        ),
+        tool(
+          'search_history',
+          'Search your own past conversations with the user across all sessions (user and assistant messages only). Newest first; each hit starts with a message id and session number for read_history.',
+          { query: z.string(), limit: z.number().int().optional().describe('default 10') },
+          async ({ query, limit }) => ({ content: [{ type: 'text', text: searchHistory(this.getMessages(id), query, limit) }] }),
+          { alwaysLoad: true }
+        ),
+        tool(
+          'read_history',
+          'Read past conversation: a whole session by number (default: current), or the messages around a message id from search_history.',
+          { session: z.number().int().optional(), near: z.string().optional().describe('message id prefix from search_history'), radius: z.number().int().optional().describe('messages each side of near, default 5'), limit: z.number().int().optional().describe('max messages for a session, default 40') },
+          async (opts) => ({ content: [{ type: 'text', text: readHistory(this.getMessages(id), opts) }] }),
+          { alwaysLoad: true }
         )
       ]
     })
@@ -694,7 +709,7 @@ export class Sessions {
     const kb = ws?.kbDir ? this.kbDir(ws.id) : undefined
     const kbIndex = kb ? readIndex(kb) : ''
     const append = [
-      `You are the agent named "${agent.name}" inside a desktop app, workspace "${ws?.name ?? ''}". Other agents in this workspace: ${others.map((a) => a.name).join(', ') || 'none'}. To talk to them use ONLY the mcp__desk__message_agent tool (and mcp__desk__list_agents to list them). The built-in SendMessage/ListAgents tools cannot reach these agents. Replies come back later as user messages starting with "Message from <name>:". Mentions: "@Name" in any message refers to that agent; in the workspace #general group chat an @mention delivers the message to them. To reset your own context call mcp__desk__new_session. You share a kanban board with the user (mcp__desk__list_tasks / create_task / update_task). The board never starts work by itself: only act on a task when the user explicitly asks you to work on it. When you start one, move it to in_progress; when finished, move it to review with a summary comment; never move a task to done. After a plan is approved, call mcp__desk__update_plan_step as you finish each checklist step. To show the user a visual plan for review call mcp__desk__present_plan with markdown in this format: ${PLAN_FORMAT.replace(/\n/g, ' ')} For scheduled/recurring work use mcp__desk__create_routine (and list_routines / update_routine); the built-in CronCreate, CronList, CronDelete, RemoteTrigger and ScheduleWakeup tools do NOT work in this app.`,
+      `You are the agent named "${agent.name}" inside a desktop app, workspace "${ws?.name ?? ''}". Other agents in this workspace: ${others.map((a) => a.name).join(', ') || 'none'}. To talk to them use ONLY the mcp__desk__message_agent tool (and mcp__desk__list_agents to list them). The built-in SendMessage/ListAgents tools cannot reach these agents. Replies come back later as user messages starting with "Message from <name>:". Mentions: "@Name" in any message refers to that agent; in the workspace #general group chat an @mention delivers the message to them. To reset your own context call mcp__desk__new_session. Your earlier sessions are gone from context but not lost: use mcp__desk__search_history / read_history when the user refers to something you discussed before. You share a kanban board with the user (mcp__desk__list_tasks / create_task / update_task). The board never starts work by itself: only act on a task when the user explicitly asks you to work on it. When you start one, move it to in_progress; when finished, move it to review with a summary comment; never move a task to done. After a plan is approved, call mcp__desk__update_plan_step as you finish each checklist step. To show the user a visual plan for review call mcp__desk__present_plan with markdown in this format: ${PLAN_FORMAT.replace(/\n/g, ' ')} For scheduled/recurring work use mcp__desk__create_routine (and list_routines / update_routine); the built-in CronCreate, CronList, CronDelete, RemoteTrigger and ScheduleWakeup tools do NOT work in this app.`,
       kb
         ? `Shared knowledge base at ${kb} (markdown, shared by all agents in this workspace). Its index follows. Meeting transcripts live in its meetings/ folder (not indexed): grep them when asked about a meeting. Before working on a repo or answering how something runs or relates, read the relevant page (Read/Grep in that folder). When you learn a durable fact (how to run, gotcha, decision, convention), write it there and update the index; use the kb skill for the rules.\n\n<kb-index>\n${kbIndex}\n</kb-index>`
         : '',
@@ -712,7 +727,7 @@ export class Sessions {
       mcpServers: { desk },
       additionalDirectories: kb ? [kb] : undefined,
       plugins: kb ? [{ type: 'local', path: kb }] : undefined,
-      allowedTools: ['mcp__desk__list_agents', 'mcp__desk__message_agent', 'mcp__desk__create_routine', 'mcp__desk__list_routines', 'mcp__desk__update_routine', 'mcp__desk__new_session', 'mcp__desk__present_plan', 'mcp__desk__reply_to_note', 'mcp__desk__update_plan_step', 'mcp__desk__list_tasks', 'mcp__desk__create_task', 'mcp__desk__update_task'],
+      allowedTools: ['mcp__desk__list_agents', 'mcp__desk__message_agent', 'mcp__desk__create_routine', 'mcp__desk__list_routines', 'mcp__desk__update_routine', 'mcp__desk__new_session', 'mcp__desk__present_plan', 'mcp__desk__reply_to_note', 'mcp__desk__update_plan_step', 'mcp__desk__list_tasks', 'mcp__desk__create_task', 'mcp__desk__update_task', 'mcp__desk__search_history', 'mcp__desk__read_history'],
       disallowedTools: ['SendMessage', 'ListAgents', 'CronCreate', 'CronList', 'CronDelete', 'RemoteTrigger', 'ScheduleWakeup'],
       permissionMode: planMode ? 'plan' : agent.autonomous ? 'bypassPermissions' : 'default',
       planModeInstructions: planMode ? PLAN_FORMAT : undefined,
