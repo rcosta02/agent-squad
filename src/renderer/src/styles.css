@@ -887,18 +887,6 @@ section.plan-card ul { margin: 0 0 8px; padding-left: 20px; }
 /* ---------- kb markdown editor (wysiwyg) ---------- */
 .kb-md { flex: 1; min-height: 0; display: flex; }
 .md-host { flex: 1; min-height: 0; }
-.kb-md .toastui-editor-defaultUI { border: 0; border-radius: 0; height: 100% !important; display: flex; flex-direction: column; }
-.kb-md .toastui-editor-defaultUI-toolbar { background: var(--card); border-bottom: 1px solid var(--border); padding: 0 6px; zoom: 0.78; }
-.kb-md .toastui-editor-toolbar-icons { border-color: transparent; }
-.kb-md .toastui-editor-main { flex: 1; min-height: 0; }
-.kb-md .toastui-editor-ww-container { background: var(--bg); }
-.kb-md .toastui-editor-contents { font-family: inherit; font-size: 14px; line-height: 1.6; color: var(--text); }
-.kb-md .toastui-editor-contents h1, .kb-md .toastui-editor-contents h2, .kb-md .toastui-editor-contents h3 { color: var(--strong); border-color: var(--border); }
-.kb-md .toastui-editor-contents p, .kb-md .toastui-editor-contents li { color: var(--text); }
-.kb-md .toastui-editor-contents code, .kb-md .toastui-editor-contents pre { background: var(--g0); color: var(--code-text); }
-.kb-md .toastui-editor-contents a { color: var(--blue); }
-.kb-md .toastui-editor-contents table th, .kb-md .toastui-editor-contents table td { border-color: var(--g5); }
-.kb-md .toastui-editor-contents table th { background: var(--border); }
 .kb-dir-row { display: flex; align-items: center; gap: 6px; width: 100%; text-align: left; border: 0; background: none; color: var(--text); font: inherit; font-size: 13px; font-weight: 500; padding: 5px 8px; border-radius: 6px; cursor: pointer; }
 .kb-dir-row:hover { background: var(--border); }
 .kb-file { display: flex; align-items: center; gap: 6px; }

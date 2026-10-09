@@ -1,6 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react'
 import { IPlus } from './Icons'
-import MdEditor from './MdEditor'
 import type { Workspace } from '../../../shared/types'
 
 type Props = { workspace: Workspace; onClose: () => void } // onClose = back to conversations
@@ -175,7 +174,7 @@ export default function KbModal({ workspace, onClose }: Props) {
               Save ⌘S
             </button>
           </div>
-          <div className="kb-md">{current && <MdEditor docKey={current} value={text} onChange={setText} />}</div>
+          <div className="kb-md">{current && <textarea className="kb-editor" value={text} onChange={(e) => setText(e.target.value)} />}</div>
         </div>
       </div>
     </div>
