@@ -7,6 +7,9 @@ import Rail from './components/Rail'
 import Board from './components/Board'
 import GroupChat from './components/GroupChat'
 import KbView from './kb/KbView'
+import WhatsNew from './whatsnew/WhatsNew'
+import { NOTES, type ReleaseNote } from './whatsnew/notes'
+import { shouldShowWhatsNew } from './whatsnew/show'
 import MeetingView from './components/MeetingView'
 import PlanView from './components/PlanView'
 import RoutinesModal from './components/RoutinesModal'
@@ -65,6 +68,8 @@ export default function App() {
   const [search, setSearch] = useState('')
   const [modal, setModal] = useState<Modal>(null)
   const [profile, setProfile] = useState<Profile | null | undefined>(undefined) // undefined = loading
+  const [version, setVersion] = useState('')
+  const [whatsNew, setWhatsNew] = useState<ReleaseNote | null>(null)
   const loaded = useRef<Set<string>>(new Set())
 
   const workspace = useMemo(() => workspaces.find((w) => w.id === workspaceId) ?? workspaces[0] ?? null, [workspaces, workspaceId])
@@ -101,10 +106,12 @@ export default function App() {
   // Initial load + event subscription.
   useEffect(() => {
     let alive = true
-    api.getProfile().then((p) => {
+    Promise.all([api.getProfile(), api.appVersion()]).then(([p, v]) => {
       if (!alive) return
       setProfile(p)
+      setVersion(v)
       if (p) applyPrefs(p.theme, p.zoom)
+      setWhatsNew(shouldShowWhatsNew(p, v, NOTES)) // once per version, only after a restart into the new build
     })
     api.listWorkspaces().then((ws) => alive && setWorkspaces(ws))
     api.listAgents().then((list) => alive && setAgents(list))
@@ -419,8 +426,18 @@ export default function App() {
           onPreview={applyPrefs}
           onClose={profile ? () => (applyPrefs(profile.theme, profile.zoom), closeModal()) : undefined}
           onSubmit={async (p) => {
-            setProfile(await api.saveProfile(p))
+            // first run: mark this version seen so the next launch is quiet; later edits keep the stored value
+            setProfile(await api.saveProfile({ ...p, seenVersion: profile?.seenVersion ?? version }))
             setModal(null)
+          }}
+        />
+      )}
+      {whatsNew && profile && (
+        <WhatsNew
+          note={whatsNew}
+          onClose={() => {
+            setWhatsNew(null)
+            void api.saveProfile({ ...profile, seenVersion: version }).then(setProfile)
           }}
         />
       )}

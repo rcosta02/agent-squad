@@ -6,7 +6,7 @@ export type Workspace = { id: string; name: string; emoji: string; image?: strin
 export const PROVIDERS = [['claude-code', 'Claude Code', 'CLI subscription']] as const
 export type Provider = (typeof PROVIDERS)[number][0]
 export type Theme = 'dark' | 'light'
-export type Profile = { firstName: string; lastName: string; providers: Provider[]; theme?: Theme; zoom?: number } // zoom = percent, 100 = default
+export type Profile = { firstName: string; lastName: string; providers: Provider[]; theme?: Theme; zoom?: number; seenVersion?: string } // zoom = percent, 100 = default; seenVersion = last version whose What's New was shown
 
 export type Agent = {
   id: string
