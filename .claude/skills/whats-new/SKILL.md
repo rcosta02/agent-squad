@@ -25,13 +25,13 @@ Voice: second person, present tense, concrete ("⌘O jumps to any page"), no com
 
 1. **Scope the release.** `git describe --tags --abbrev=0` gives the last released tag; `git log --oneline <tag>..HEAD` is the release. Read each user-facing commit's diff enough to state what a user can now do. Internal fixes, docs, CI, signing: not announcement material (an invisible fix may earn an `also` line only if users hit the bug).
 2. **Verify every claim in code** before writing it: shortcuts in the component that binds them, behaviours in the function that implements them. A claim you cannot point to a line for does not go in.
-3. **Write the entry** in `notes.ts` to the shape above. Keep older entries; only the running version's entry is shown.
-4. **Capture images with the harness, never reuse last release's pictures.** Write a steps file (copy `kb-shots.json` in this skill folder, adjust clicks and clip boxes), build, run:
+3. **Capture images with the harness first, never reuse last release's pictures.** Images before copy: `notes.ts` imports them, and the build fails on a missing PNG. Save a steps file as `.claude/skills/whats-new/<version>-shots.json` (start from `kb-shots.json`; adjust clicks and clip boxes), build, run:
    ```bash
    npx electron-vite build
-   node .claude/skills/whats-new/shots.mjs <steps.json>
+   node .claude/skills/whats-new/shots.mjs .claude/skills/whats-new/<version>-shots.json
    ```
-   It launches the built app on a scratch home with the bundled showcase vault (your real data never appears), runs the steps, writes PNGs into `img/`. View every PNG you reference; recrop until the subject fills the frame. Card images are shown at about 350×82 px cropped from the top-left, so clip tight.
+   It launches the built app on a scratch home with the bundled showcase vault (your real data never appears), runs the steps, writes PNGs into `img/`. Clip boxes exclude the app chrome: start at x ≥ 82 (the rail) and y ≥ 52 (the title bar). View every PNG you reference; recrop until the subject fills the frame. Card images are shown at about 350×82 px cropped from the top-left, so clip tight around the one thing the card is about.
+4. **Write the entry** in `notes.ts` to the shape above, importing the PNGs you just captured. Keep older entries; only the running version's entry is shown.
 5. **Verify the dialog in the app**:
    ```bash
    npm test && npx electron-vite build && node .claude/skills/whats-new/shots.mjs --verify-dialog
@@ -44,5 +44,6 @@ Voice: second person, present tense, concrete ("⌘O jumps to any page"), no com
 - Reusing images from the previous entry: the pictures are the feature; a stale picture sells the wrong thing.
 - Listing commits as bullets: readers want outcomes, four of them, not a changelog.
 - Four cards but two without images: the grid leaves holes and the dialog grows past the window.
+- Clip boxes starting at x=0: the workspace rail ends up in every picture.
 - Writing from memory of the diff: a shortcut that does not exist in the component is a support ticket.
 - Calling it done after `tsc`: the dialog is layout; only the app run proves it fits.
