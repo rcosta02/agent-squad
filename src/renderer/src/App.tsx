@@ -6,7 +6,7 @@ import OnboardingModal from './components/OnboardingModal'
 import Rail from './components/Rail'
 import Board from './components/Board'
 import GroupChat from './components/GroupChat'
-import KbModal from './components/KbModal'
+import KbView from './kb/KbView'
 import MeetingView from './components/MeetingView'
 import PlanView from './components/PlanView'
 import RoutinesModal from './components/RoutinesModal'
@@ -352,7 +352,7 @@ export default function App() {
         {openPlan ? (
           <PlanView planId={openPlan} onBack={() => setOpenPlan(null)} />
         ) : showKb && workspace ? (
-          <KbModal workspace={workspace} onClose={() => setShowKb(false)} />
+          <KbView workspace={workspace} onClose={() => setShowKb(false)} />
         ) : showMeeting && workspace ? (
           <MeetingView
             workspace={workspace}

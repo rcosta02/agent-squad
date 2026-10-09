@@ -1,7 +1,7 @@
 // Obsidian-style live preview: markdown syntax is hidden on every line the selection does not touch.
 // buildDecorations() is pure (tested under node); livePreview() turns its output into CodeMirror decorations.
-import { EditorState, type Range } from '@codemirror/state'
-import { Decoration, type DecorationSet, EditorView, ViewPlugin, type ViewUpdate } from '@codemirror/view'
+import { EditorState, StateEffect, StateField, type Range } from '@codemirror/state'
+import { Decoration, type DecorationSet, EditorView } from '@codemirror/view'
 import { ensureSyntaxTree, syntaxTree } from '@codemirror/language'
 import type { SyntaxNode } from '@lezer/common'
 import { BulletWidget, CheckboxWidget, HrWidget, ImageWidget, PropertiesWidget, TableWidget } from './widgets.ts'
@@ -14,10 +14,11 @@ export type Deco = {
   widget?: 'bullet' | 'checkbox' | 'hr' | 'table' | 'properties' | 'image'
   src?: string // image
   checked?: boolean // checkbox
+  pos?: number // checkbox: offset of the "[" so a click can flip the marker
   target?: string // wikilink
   style?: string // line
 }
-export type Opts = { resolve(target: string): string | null; imgUrl(rel: string): string }
+export type Opts = { resolve(target: string): string | null; imgUrl(rel: string): string; focused?: boolean } // focused=false → no active lines (Obsidian shows no raw syntax in an unfocused editor)
 
 /** 1-based line numbers touched by any selection range. */
 export function activeLines(state: EditorState): Set<number> {
@@ -36,7 +37,7 @@ const IMG_EXT = /\.(png|jpe?g|gif|webp|svg|bmp|avif)$/i
 export function buildDecorations(state: EditorState, opts: Opts): Deco[] {
   const doc = state.doc
   const out: Deco[] = []
-  const active = activeLines(state)
+  const active = opts.focused === false ? new Set<number>() : activeLines(state)
   const lineOf = (pos: number) => doc.lineAt(pos).number
   const isActive = (from: number, to: number) => {
     for (let n = lineOf(from); n <= lineOf(to); n++) if (active.has(n)) return true
@@ -177,31 +178,40 @@ export function buildDecorations(state: EditorState, opts: Opts): Deco[] {
           line(n.from, `HyperMD-list-line HyperMD-list-line-${depth}` + (task ? ' HyperMD-task-line' + (checked ? ' is-checked' : '') : ''), `--list-depth:${depth}`)
           if (lm) {
             const lineAct = active.has(lineOf(n.from))
-            if (ordered) mark(lm.from, lm.to, 'cm-list-number')
+            if (marker) {
+              // task: one checkbox stands in for "- [ ] " (marker through the space after it)
+              if (lineAct) mark(lm.from, marker.to, 'cm-formatting')
+              else widget(lm.from, Math.min(marker.to + 1, n.to), 'checkbox', { checked, pos: marker.from })
+              if (task) mark(marker.to, task.to, 'cm-task-text')
+            } else if (ordered) mark(lm.from, lm.to, 'cm-list-number')
             else if (lineAct) mark(lm.from, lm.to, 'cm-formatting cm-list-bullet-raw')
             else widget(lm.from, Math.min(lm.to + 1, n.to), 'bullet')
-            if (marker) {
-              if (lineAct) mark(marker.from, marker.to, 'cm-formatting')
-              else widget(marker.from, Math.min(marker.to + 1, n.to), 'checkbox', { checked })
-              if (task) mark(marker.to, task.to, 'cm-task-text')
-            }
           }
           return
         }
         case 'Blockquote': {
           for (let ln = lineOf(n.from); ln <= lineOf(n.to); ln++) line(doc.line(ln).from, 'HyperMD-quote')
-          for (const qm of n.node.getChildren('QuoteMark')) {
-            const end = doc.sliceString(qm.to, qm.to + 1) === ' ' ? qm.to + 1 : qm.to
-            if (active.has(lineOf(qm.from))) mark(qm.from, qm.to, 'cm-formatting')
-            else hide(qm.from, end)
-          }
-          return
+          // continuation "> " marks live inside the nested paragraph, so walk every descendant
+          n.node.cursor().iterate((c) => {
+            if (c.name !== 'QuoteMark') return
+            const end = doc.sliceString(c.to, c.to + 1) === ' ' ? c.to + 1 : c.to
+            if (active.has(lineOf(c.from))) mark(c.from, c.to, 'cm-formatting')
+            else hide(c.from, end)
+          })
+          return false
         }
         case 'FencedCode': {
           const a = lineOf(n.from)
           const b = lineOf(n.to)
           for (let ln = a; ln <= b; ln++) line(doc.line(ln).from, 'HyperMD-codeblock' + (ln === a ? ' HyperMD-codeblock-begin' : '') + (ln === b ? ' HyperMD-codeblock-end' : ''))
-          for (const cm of n.node.getChildren('CodeMark')) mark(cm.from, cm.to, 'cm-formatting')
+          // fence lines: raw while the cursor is anywhere in the block, otherwise emptied (the padded line stays)
+          const marks = n.node.getChildren('CodeMark')
+          const info = n.node.getChild('CodeInfo')
+          if (act) for (const cm of marks) mark(cm.from, cm.to, 'cm-formatting')
+          else {
+            if (marks[0]) hide(marks[0].from, info ? info.to : marks[0].to)
+            if (marks[1]) hide(marks[1].from, marks[1].to)
+          }
           return false
         }
         case 'HorizontalRule': {
@@ -225,10 +235,17 @@ export function buildDecorations(state: EditorState, opts: Opts): Deco[] {
 }
 
 // ---------- CodeMirror glue ----------
+// A StateField, not a ViewPlugin: replace decorations that span line breaks (table, properties) are only allowed from fields.
 
 export type ViewOpts = Opts & { onOpenLink(target: string): void }
 
-function toRanges(decos: Deco[], view: EditorView): DecorationSet {
+const setFocus = StateEffect.define<boolean>()
+const focusField = StateField.define<boolean>({
+  create: () => false,
+  update: (v, tr) => tr.effects.reduce((acc, e) => (e.is(setFocus) ? e.value : acc), v)
+})
+
+function toRanges(decos: Deco[], state: EditorState): DecorationSet {
   const ranges: Range<Decoration>[] = []
   for (const d of decos) {
     switch (d.kind) {
@@ -238,12 +255,12 @@ function toRanges(decos: Deco[], view: EditorView): DecorationSet {
       case 'widget': {
         const w =
           d.widget === 'bullet' ? new BulletWidget()
-          : d.widget === 'checkbox' ? new CheckboxWidget(!!d.checked, d.from, view)
+          : d.widget === 'checkbox' ? new CheckboxWidget(!!d.checked, d.pos ?? d.from)
           : d.widget === 'hr' ? new HrWidget()
-          : d.widget === 'table' ? new TableWidget(view.state.doc.sliceString(d.from, d.to))
-          : d.widget === 'properties' ? new PropertiesWidget(view.state.doc.sliceString(d.from, d.to))
+          : d.widget === 'table' ? new TableWidget(state.doc.sliceString(d.from, d.to))
+          : d.widget === 'properties' ? new PropertiesWidget(state.doc.sliceString(d.from, d.to))
           : new ImageWidget(d.src!)
-        ranges.push(Decoration.replace({ widget: w, block: d.widget === 'table' || d.widget === 'properties' ? false : false, inclusive: false }).range(d.from, d.to))
+        ranges.push(Decoration.replace({ widget: w, inclusive: false }).range(d.from, d.to))
       }
     }
   }
@@ -251,33 +268,33 @@ function toRanges(decos: Deco[], view: EditorView): DecorationSet {
 }
 
 export function livePreview(opts: ViewOpts) {
-  const plugin = ViewPlugin.fromClass(
-    class {
-      decorations: DecorationSet
-      view: EditorView
-      constructor(view: EditorView) {
-        this.view = view
-        this.decorations = toRanges(buildDecorations(view.state, opts), view)
-      }
-      update(u: ViewUpdate) {
-        if (u.docChanged || u.selectionSet || u.viewportChanged) this.decorations = toRanges(buildDecorations(u.state, opts), u.view)
-      }
+  const build = (state: EditorState) => toRanges(buildDecorations(state, { ...opts, focused: state.field(focusField) }), state)
+  const field = StateField.define<DecorationSet>({
+    create: build,
+    update: (deco, tr) => (tr.docChanged || tr.selection || tr.effects.some((e) => e.is(setFocus)) ? build(tr.state) : deco),
+    provide: (f) => EditorView.decorations.from(f)
+  })
+  const events = EditorView.domEventHandlers({
+    focus(_e, view) {
+      view.dispatch({ effects: setFocus.of(true) })
+      return false
     },
-    { decorations: (v) => v.decorations }
-  )
-  const clicks = EditorView.domEventHandlers({
+    blur(_e, view) {
+      view.dispatch({ effects: setFocus.of(false) })
+      return false
+    },
     mousedown(e) {
       const el = (e.target as HTMLElement).closest?.('.cm-hmd-internal-link') as HTMLElement | null
       if (!el) return false
-      const line = el.closest('.cm-line')
-      const raw = el.classList.contains('cm-formatting') || (line && line.querySelector('.cm-formatting')) // active line shows raw text
-      if (raw && !e.metaKey && !e.ctrlKey) return false
       const target = el.dataset.target
       if (!target) return false
+      // On the active (raw) line the whole link is one formatting span: only Cmd/Ctrl-click opens it.
+      const raw = el.classList.contains('cm-formatting')
+      if (raw && !e.metaKey && !e.ctrlKey) return false
       e.preventDefault()
       opts.onOpenLink(target)
       return true
     }
   })
-  return [plugin, clicks]
+  return [focusField, field, events]
 }

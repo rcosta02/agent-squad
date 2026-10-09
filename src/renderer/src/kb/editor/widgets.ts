@@ -13,15 +13,13 @@ export class BulletWidget extends WidgetType {
 export class CheckboxWidget extends WidgetType {
   checked: boolean
   pos: number
-  view: EditorView
-  constructor(checked: boolean, pos: number, view: EditorView) {
+  constructor(checked: boolean, pos: number) {
     super()
     this.checked = checked
     this.pos = pos
-    this.view = view
   }
   eq(o: CheckboxWidget) { return o.checked === this.checked && o.pos === this.pos }
-  toDOM() {
+  toDOM(view: EditorView) {
     const i = document.createElement('input')
     i.type = 'checkbox'
     i.className = 'task-list-item-checkbox'
@@ -30,7 +28,7 @@ export class CheckboxWidget extends WidgetType {
     i.onclick = (e) => {
       e.preventDefault()
       // marker is "[ ]" or "[x]" at pos; flip the middle char
-      this.view.dispatch({ changes: { from: this.pos + 1, to: this.pos + 2, insert: this.checked ? ' ' : 'x' } })
+      view.dispatch({ changes: { from: this.pos + 1, to: this.pos + 2, insert: this.checked ? ' ' : 'x' } })
     }
     return i
   }

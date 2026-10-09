@@ -51,6 +51,7 @@ Write only durable facts: how to run/test/deploy, structure, gotchas, convention
 - Procedure (deploy, rollback, debug recipe) → \`runbooks/<topic>.md\`, numbered steps, commands in code blocks.
 - Decision with a why → \`decisions/YYYY-MM-DD-<slug>.md\`: Context / Decision / Consequences, under 15 lines.
 - New page → add one line to README.md under the right heading. Keep README an index, not content.
+- Link related pages with wikilinks: \`[[page-name]]\` (file name without .md; folder paths like \`[[runbooks/deploy]]\` also work). The user sees backlinks in the KB editor, so link generously: a runbook to its project page, a decision to what it affects.
 
 After writing: \`git -C <kb-folder> add -A && git -C <kb-folder> commit -qm "kb: <what changed>"\`.
 

@@ -14,20 +14,21 @@ const doc = [
   /*8*/ '  - [ ] task',
   /*9*/ '1. one',
   /*10*/ '> quoted',
-  /*11*/ '```js',
-  /*12*/ 'x = [[page]]',
-  /*13*/ '```',
-  /*14*/ '---',
-  /*15*/ '| a | b |',
-  /*16*/ '|---|---|',
-  /*17*/ '| 1 | 2 |',
-  /*18*/ '',
-  /*19*/ '![pic](img.png) and ![[photo.png]]',
-  /*20*/ ''
+  /*11*/ '> more',
+  /*12*/ '```js',
+  /*13*/ 'x = [[page]]',
+  /*14*/ '```',
+  /*15*/ '---',
+  /*16*/ '| a | b |',
+  /*17*/ '|---|---|',
+  /*18*/ '| 1 | 2 |',
+  /*19*/ '',
+  /*20*/ '![pic](img.png) and ![[photo.png]]',
+  /*21*/ ''
 ].join('\n')
 
 const resolve = (t: string) => (t === 'page' ? 'page.md' : null)
-const state = (cursorLine = 20, anchorLine?: number) => {
+const state = (cursorLine = 21, anchorLine?: number) => {
   const s = EditorState.create({ doc, extensions: [markdown({ base: markdownLanguage })] })
   const head = s.doc.line(cursorLine).from
   const anchor = anchorLine ? s.doc.line(anchorLine).from : head
@@ -57,18 +58,23 @@ assert.equal(l6.filter((d) => d.cls?.includes('is-unresolved')).length, 1, 'one 
 assert.ok(!l6.some((d) => d.kind === 'mark' && d.cls === 'cm-link' && doc.slice(d.from, d.to).includes('page')), 'wikilink not also treated as md link')
 assert.ok(within(d0, s0, 7).some((d) => d.kind === 'widget' && d.widget === 'bullet'), 'bullet widget')
 assert.ok(within(d0, s0, 8).some((d) => d.kind === 'widget' && d.widget === 'checkbox'), 'checkbox widget')
+assert.ok(!within(d0, s0, 8).some((d) => d.widget === 'bullet'), 'task line has no bullet, the checkbox replaces the marker')
+assert.equal(within(d0, s0, 8).find((d) => d.widget === 'checkbox')!.pos, lineText(s0, 8).from + '  - '.length, 'checkbox carries the [ ] offset for toggling')
 assert.ok(classes(within(d0, s0, 8)).includes('HyperMD-list-line-2'), 'nested list depth')
 assert.ok(classes(within(d0, s0, 9)).includes('cm-list-number'), 'ordered marker styled, not hidden')
 assert.ok(hidden(within(d0, s0, 10)).includes('> '), 'quote mark hidden')
-assert.ok(classes(within(d0, s0, 11)).includes('HyperMD-codeblock-begin') && classes(within(d0, s0, 13)).includes('HyperMD-codeblock-end'))
-assert.ok(!within(d0, s0, 12).some((d) => d.cls?.includes('internal-link')), '[[page]] inside fence is not a link')
-assert.ok(within(d0, s0, 14).some((d) => d.kind === 'widget' && d.widget === 'hr'), 'hr widget')
+assert.ok(hidden(within(d0, s0, 11)).includes('> '), 'quote continuation mark hidden too')
+assert.ok(classes(within(d0, s0, 12)).includes('HyperMD-codeblock-begin') && classes(within(d0, s0, 14)).includes('HyperMD-codeblock-end'))
+assert.ok(hidden(within(d0, s0, 12)).includes('```js') && hidden(within(d0, s0, 14)).includes('```'), 'fence lines hidden when block inactive')
+assert.ok(!hidden(within(decos(state(13)), state(13), 12)).length, 'fence shown when cursor inside block')
+assert.ok(!within(d0, s0, 13).some((d) => d.cls?.includes('internal-link')), '[[page]] inside fence is not a link')
+assert.ok(within(d0, s0, 15).some((d) => d.kind === 'widget' && d.widget === 'hr'), 'hr widget')
 const tbl = d0.find((d) => d.kind === 'widget' && d.widget === 'table')
-assert.ok(tbl && tbl.from === lineText(s0, 15).from && tbl.to === lineText(s0, 17).to, 'whole table replaced by widget when inactive')
+assert.ok(tbl && tbl.from === lineText(s0, 16).from && tbl.to === lineText(s0, 18).to, 'whole table replaced by widget when inactive')
 const fm = d0.find((d) => d.kind === 'widget' && d.widget === 'properties')
 assert.ok(fm && fm.from === 0 && fm.to === lineText(s0, 3).to, 'frontmatter collapsed to properties widget')
 assert.ok(!within(d0, s0, 1).some((d) => d.widget === 'hr'), 'frontmatter fence is not an hr')
-const imgs = within(d0, s0, 19).filter((d) => d.widget === 'image')
+const imgs = within(d0, s0, 20).filter((d) => d.widget === 'image')
 assert.deepEqual(imgs.map((d) => d.src), ['kb://ws/img.png', 'kb://ws/photo.png'], 'md image and embed both render via kb://')
 
 // --- cursor on a line reveals it ---
@@ -80,10 +86,10 @@ assert.ok(classes(within(d5, s5, 5)).includes('cm-strong'), 'but styling stays')
 assert.ok(hidden(within(d5, s5, 4)).includes('# '), 'other lines still hidden')
 
 // --- cursor inside table / code / frontmatter reveals the whole block ---
-const s16 = state(16)
-const d16 = decos(s16)
-assert.ok(!d16.some((d) => d.widget === 'table'), 'table raw when cursor inside')
-assert.ok(classes(within(d16, s16, 15)).includes('HyperMD-table-row'))
+const s17 = state(17)
+const d17 = decos(s17)
+assert.ok(!d17.some((d) => d.widget === 'table'), 'table raw when cursor inside')
+assert.ok(classes(within(d17, s17, 16)).includes('HyperMD-table-row'))
 const s2 = state(2)
 assert.ok(!decos(s2).some((d) => d.widget === 'properties') && classes(within(decos(s2), s2, 1)).includes('HyperMD-frontmatter'))
 
