@@ -88,6 +88,7 @@ export default function FileTree({ wsId, names, extraDirs, current, onOpen, onCr
   }
   const drop = (e: DragEvent, dir: string) => {
     e.preventDefault()
+    e.stopPropagation() // the tree root is a drop target too
     setDropOn(null)
     const rel = e.dataTransfer.getData('text/kb')
     if (!rel) return
@@ -97,6 +98,7 @@ export default function FileTree({ wsId, names, extraDirs, current, onOpen, onCr
   const dragOver = (e: DragEvent, dir: string) => {
     if (!e.dataTransfer.types.includes('text/kb')) return
     e.preventDefault()
+    e.stopPropagation()
     setDropOn(dir)
   }
 
@@ -115,7 +117,7 @@ export default function FileTree({ wsId, names, extraDirs, current, onOpen, onCr
         onClick={() => (kind === 'file' ? onOpen(path) : toggle(path))}
         onDoubleClick={(e) => {
           e.stopPropagation()
-          setEditing({ path, value: base(path) })
+          if (path !== 'README.md') setEditing({ path, value: base(path) })
         }}
         onContextMenu={(e) => context(e, { kind, path })}
         title={path}
@@ -172,10 +174,10 @@ export default function FileTree({ wsId, names, extraDirs, current, onOpen, onCr
         <div className="kb-menu" style={{ left: menu.x, top: menu.y }} onMouseDown={(e) => e.stopPropagation()}>
           <button onClick={() => (setMenu(null), onCreate(menuDir))}>New note</button>
           <button onClick={() => (setMenu(null), onMkdir(menuDir))}>New folder</button>
-          {menu.target.kind !== 'root' && (
+          {menu.target.kind !== 'root' && menu.target.path !== 'README.md' && (
             <>
               <button onClick={() => (setMenu(null), setEditing({ path: menu.target.path, value: base(menu.target.path) }))}>Rename</button>
-              {menu.target.path !== 'README.md' && (
+              {(
                 <button className="danger" onClick={() => (setMenu(null), onDelete(menu.target.path))}>
                   Delete
                 </button>

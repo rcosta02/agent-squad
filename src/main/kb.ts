@@ -60,14 +60,20 @@ Style: terse bullets, commands in backticks, absolute paths, no marketing langua
 
 /** Make sure the folder, index, and the local plugin that carries the kb skill exist. Never overwrites existing files. */
 export function ensureKb(dir: string, name: string) {
-  for (const d of ['projects', 'runbooks', 'decisions', '.claude-plugin', 'skills/kb']) fs.mkdirSync(path.join(dir, d), { recursive: true })
+  // Starter pages are seeded once (no .git yet). Afterwards the user owns the pages: a deleted or renamed
+  // architecture.md must stay deleted, so only the app-owned skill files are kept current.
+  const fresh = !fs.existsSync(path.join(dir, '.git'))
+  for (const d of ['.claude-plugin', 'skills/kb', ...(fresh ? ['projects', 'runbooks', 'decisions'] : [])]) fs.mkdirSync(path.join(dir, d), { recursive: true })
   const write = (rel: string, content: string) => {
     const f = path.join(dir, rel)
     if (!fs.existsSync(f)) fs.writeFileSync(f, content)
   }
-  write('README.md', README(name))
-  write('architecture.md', `# Architecture\n\n(how the repos relate: data flow, shared services, who calls whom)\n`)
-  write('practices.md', `# Practices\n\n(team conventions: commit format, branches, PR process, code style)\n`)
+  if (fresh) {
+    write('README.md', README(name))
+    write('architecture.md', `# Architecture\n\n(how the repos relate: data flow, shared services, who calls whom)\n`)
+    write('practices.md', `# Practices\n\n(team conventions: commit format, branches, PR process, code style)\n`)
+  }
+  write('README.md', README(name)) // the index must exist: the system prompt reads it and the editor opens it
   write('.claude-plugin/plugin.json', JSON.stringify({ name: 'kb', description: `Knowledge base skill for the ${name} workspace`, version: '1.0.0' }, null, 2))
   write('.gitignore', '.DS_Store\n')
   fs.writeFileSync(path.join(dir, 'skills/kb/SKILL.md'), SKILL) // always refresh: it is app-owned, not user content
@@ -89,4 +95,4 @@ export function readIndex(dir: string, maxChars = 6000): string {
 }
 
 // ---------- user-facing file access (renderer editor) ----------
-export { kbList, kbRead, kbReadAll, kbWrite, kbCommit, kbDelete, kbMkdir, kbRename, watchKb } from './kbfs'
+export { kbList, kbRead, kbReadAll, kbWrite, kbCreate, kbCommit, kbDelete, kbMkdir, kbRename, watchKb } from './kbfs'

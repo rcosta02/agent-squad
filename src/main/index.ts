@@ -1,10 +1,11 @@
 import { app, BrowserWindow, clipboard, dialog, ipcMain, net, protocol, shell, systemPreferences } from 'electron'
 import { execSync } from 'node:child_process'
+import { pathToFileURL } from 'node:url'
 import fs from 'node:fs'
 import path from 'node:path'
 import type { Event } from '../shared/types'
 import { Sessions } from './sessions'
-import { kbCommit, kbDelete, kbList, kbMkdir, kbRead, kbReadAll, kbRename, kbWrite, watchKb } from './kb'
+import { kbCommit, kbCreate, kbDelete, kbList, kbMkdir, kbRead, kbReadAll, kbRename, kbWrite, watchKb } from './kb'
 import { home, loadProfile, saveProfile } from './store'
 import { checkForUpdates, startUpdater } from './updater'
 import { listModels } from './models'
@@ -95,6 +96,7 @@ ipcMain.handle('kb:write', (_, wsId, rel, content) => kbWrite(sessions.kbDir(wsI
 ipcMain.handle('kb:delete', (_, wsId, rel) => kbDelete(sessions.kbDir(wsId), rel))
 ipcMain.handle('kb:commit', (_, wsId) => kbCommit(sessions.kbDir(wsId)))
 ipcMain.handle('kb:rename', (_, wsId, from, to) => kbRename(sessions.kbDir(wsId), from, to))
+ipcMain.handle('kb:create', (_, wsId, rel) => kbCreate(sessions.kbDir(wsId), rel))
 ipcMain.handle('kb:mkdir', (_, wsId, rel) => kbMkdir(sessions.kbDir(wsId), rel))
 ipcMain.handle('kb:readAll', (_, wsId) => kbReadAll(sessions.kbDir(wsId)))
 const kbWatchers = new Map<string, () => void>()
@@ -179,10 +181,20 @@ protocol.registerSchemesAsPrivileged([{ scheme: 'kb', privileges: { standard: tr
 app.whenReady().then(() => {
   protocol.handle('kb', (req) => {
     const u = new URL(req.url)
-    const dir = sessions.kbDir(u.hostname)
-    const abs = path.resolve(dir, decodeURIComponent(u.pathname.slice(1)))
+    let dir: string
+    try {
+      dir = sessions.kbDir(u.hostname)
+    } catch {
+      return new Response('not found', { status: 404 })
+    }
+    const rel = decodeURIComponent(u.pathname.slice(1))
+    if (rel.split('/').some((s) => s.startsWith('.') || s === 'skills')) return new Response('forbidden', { status: 403 })
+    let abs = path.resolve(dir, rel)
     if (!abs.startsWith(dir + path.sep)) return new Response('forbidden', { status: 403 })
-    return net.fetch('file://' + abs)
+    // Obsidian resolves embeds by shortest path: note-relative first, then anywhere — here: vault root.
+    if (!fs.existsSync(abs)) abs = path.resolve(dir, path.basename(rel))
+    if (!fs.existsSync(abs)) return new Response('not found', { status: 404 })
+    return net.fetch(pathToFileURL(abs).href)
   })
   createWindow()
   startUpdater()

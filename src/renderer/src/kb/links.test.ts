@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { stripCode, extractLinks, resolve, buildGraph, fuzzy } from './links.ts'
+import { stripCode, extractLinks, resolve, buildGraph, fuzzy } from '../../../shared/links.ts'
 
 // stripCode keeps length so line numbers and offsets survive
 const md = 'a [[x]] b\n```\n[[y]]\n```\n`[[z]]` [[w|W]] [[v#h]]'
@@ -7,6 +7,8 @@ const stripped = stripCode(md)
 assert.equal(stripped.length, md.length)
 assert.ok(!stripped.includes('[[y]]') && !stripped.includes('[[z]]') && stripped.includes('[[x]]') && stripped.includes('[[w|W]]'))
 
+assert.ok(!stripCode('text\n```\n[[inside]]\n').includes('[[inside]]'), 'unclosed fence is code to the end, like the parser')
+assert.ok(!stripCode('~~~\n[[tilde]]\n~~~').includes('[[tilde]]'), 'tilde fences too')
 const links = extractLinks(md)
 assert.deepEqual(links.map((l) => [l.target, l.alias ?? null, l.line]), [['x', null, 1], ['w', 'W', 5], ['v', null, 5]], 'targets outside code, heading stripped, alias kept, 1-based lines')
 assert.equal(links[1].text, '`[[z]]` [[w|W]] [[v#h]]', 'line text kept for backlink context')

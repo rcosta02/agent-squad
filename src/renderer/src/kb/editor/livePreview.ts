@@ -16,6 +16,8 @@ export type Deco = {
   checked?: boolean // checkbox
   pos?: number // checkbox: offset of the "[" so a click can flip the marker
   target?: string // wikilink
+  raw?: true // mark sits on an active (raw) line: plain click edits, Cmd-click follows
+  href?: string // external link url
   style?: string // line
 }
 export type Opts = { resolve(target: string): string | null; imgUrl(rel: string): string; focused?: boolean } // focused=false → no active lines (Obsidian shows no raw syntax in an unfocused editor)
@@ -94,7 +96,7 @@ export function buildDecorations(state: EditorState, opts: Opts): Deco[] {
       const resolved = opts.resolve(t)
       const cls = 'cm-hmd-internal-link' + (resolved ? '' : ' is-unresolved')
       if (active.has(n)) {
-        mark(from, to, cls, { target: t })
+        mark(from, to, cls, { target: t, raw: true })
         continue
       }
       const open = from + bang.length + 2
@@ -146,7 +148,8 @@ export function buildDecorations(state: EditorState, opts: Opts): Deco[] {
           if (marks.length < 2) return
           const textFrom = marks[0].to
           const textTo = marks[1].from
-          mark(textFrom, textTo, 'cm-link')
+          const href = url ? doc.sliceString(url.from, url.to) : undefined
+          mark(textFrom, textTo, 'cm-link', { href, raw: act || undefined })
           if (act) {
             for (const m of marks) mark(m.from, m.to, 'cm-formatting')
             if (url) mark(url.from, url.to, 'cm-url')
@@ -237,7 +240,10 @@ export function buildDecorations(state: EditorState, opts: Opts): Deco[] {
 // ---------- CodeMirror glue ----------
 // A StateField, not a ViewPlugin: replace decorations that span line breaks (table, properties) are only allowed from fields.
 
-export type ViewOpts = Opts & { onOpenLink(target: string): void }
+export type ViewOpts = Opts & { onOpenLink(target: string): void; onOpenExternal(url: string): void }
+
+/** Dispatch this when the page list changes (new note, rename) so unresolved marks update without faking a selection. */
+export const refreshDecorations = StateEffect.define<null>()
 
 const setFocus = StateEffect.define<boolean>()
 const focusField = StateField.define<boolean>({
@@ -250,7 +256,14 @@ function toRanges(decos: Deco[], state: EditorState): DecorationSet {
   for (const d of decos) {
     switch (d.kind) {
       case 'hide': ranges.push(Decoration.replace({}).range(d.from, d.to)); break
-      case 'mark': ranges.push(Decoration.mark({ class: d.cls!, attributes: d.target ? { 'data-target': d.target } : undefined }).range(d.from, d.to)); break
+      case 'mark': {
+        const attributes: Record<string, string> = {}
+        if (d.target) attributes['data-target'] = d.target
+        if (d.href) attributes['data-href'] = d.href
+        if (d.raw) attributes['data-raw'] = '1'
+        ranges.push(Decoration.mark({ class: d.cls!, attributes }).range(d.from, d.to))
+        break
+      }
       case 'line': ranges.push(Decoration.line({ class: d.cls!, attributes: d.style ? { style: d.style } : undefined }).range(d.from)); break
       case 'widget': {
         const w =
@@ -271,7 +284,7 @@ export function livePreview(opts: ViewOpts) {
   const build = (state: EditorState) => toRanges(buildDecorations(state, { ...opts, focused: state.field(focusField) }), state)
   const field = StateField.define<DecorationSet>({
     create: build,
-    update: (deco, tr) => (tr.docChanged || tr.selection || tr.effects.some((e) => e.is(setFocus)) ? build(tr.state) : deco),
+    update: (deco, tr) => (tr.docChanged || tr.selection || tr.effects.some((e) => e.is(setFocus) || e.is(refreshDecorations)) ? build(tr.state) : deco),
     provide: (f) => EditorView.decorations.from(f)
   })
   const events = EditorView.domEventHandlers({
@@ -284,13 +297,17 @@ export function livePreview(opts: ViewOpts) {
       return false
     },
     mousedown(e) {
-      const el = (e.target as HTMLElement).closest?.('.cm-hmd-internal-link') as HTMLElement | null
+      const el = (e.target as HTMLElement).closest?.('.cm-hmd-internal-link, .cm-link[data-href]') as HTMLElement | null
       if (!el) return false
+      // On the active (raw) line a plain click places the cursor; Cmd/Ctrl-click follows the link.
+      if (el.dataset.raw && !e.metaKey && !e.ctrlKey) return false
+      if (el.dataset.href) {
+        e.preventDefault()
+        opts.onOpenExternal(el.dataset.href)
+        return true
+      }
       const target = el.dataset.target
       if (!target) return false
-      // On the active (raw) line the whole link is one formatting span: only Cmd/Ctrl-click opens it.
-      const raw = el.classList.contains('cm-formatting')
-      if (raw && !e.metaKey && !e.ctrlKey) return false
       e.preventDefault()
       opts.onOpenLink(target)
       return true

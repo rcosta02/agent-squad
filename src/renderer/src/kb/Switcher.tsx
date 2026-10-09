@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { fuzzy, stripCode } from './links'
+import { fuzzy } from './links'
 
 type Props = {
   mode: 'open' | 'search'
@@ -62,7 +62,7 @@ export default function Switcher({ mode, names, pages, onOpen, onCreate, onClose
             <button key={it.rel + ':' + it.line + ':' + i} className={'item' + (i === sel ? ' sel' : '')} onMouseEnter={() => setSel(i)} onClick={() => choose(i)}>
               <span className="dir">{dir(it.rel)}</span>
               {base(it.rel)}
-              {it.ctx && <span className="ctx">{mark(stripCode(it.ctx) === it.ctx ? it.ctx : it.ctx, q)}</span>}
+              {it.ctx && <span className="ctx">{mark(it.ctx, q)}</span>}
             </button>
           ))}
           {mode === 'open' && q.trim() && !items.some((i) => base(i.rel).toLowerCase() === q.trim().toLowerCase()) && (

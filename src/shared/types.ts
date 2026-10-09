@@ -200,6 +200,7 @@ export type Api = {
   kbDelete(workspaceId: string, rel: string): Promise<void>
   kbCommit(workspaceId: string): Promise<void> // git commit whatever is pending
   kbRename(workspaceId: string, from: string, to: string): Promise<string[]> // note or folder; rewrites [[links]]; returns touched pages
+  kbCreate(workspaceId: string, rel: string): Promise<void> // empty note; refuses an existing name in any case
   kbMkdir(workspaceId: string, rel: string): Promise<void>
   kbReadAll(workspaceId: string): Promise<{ rel: string; content: string }[]>
   kbWatch(workspaceId: string, on: boolean): Promise<void> // emits kbChanged while on

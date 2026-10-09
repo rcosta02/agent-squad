@@ -3,7 +3,7 @@ import { EditorState } from '@codemirror/state'
 import { EditorView, keymap, drawSelection, highlightActiveLine } from '@codemirror/view'
 import { defaultKeymap, history, historyKeymap } from '@codemirror/commands'
 import { markdown, markdownLanguage } from '@codemirror/lang-markdown'
-import { livePreview } from './livePreview'
+import { livePreview, refreshDecorations } from './livePreview'
 import { kbKeymap } from './keymap'
 import { wikilinkCompletion } from './wikilinkComplete'
 
@@ -15,15 +15,17 @@ type Props = {
   imgUrl(rel: string): string
   onChange(md: string): void
   onOpenLink(target: string): void
+  onOpenExternal(url: string): void
   scrollToLine?: number
 }
 
 /** CodeMirror 6 live-preview markdown editor. Uncontrolled after mount; `value` changes from outside (disk reload) are applied. */
-export default function Editor({ value, docKey, pages, resolve, imgUrl, onChange, onOpenLink, scrollToLine }: Props) {
+export default function Editor({ value, docKey, pages, resolve, imgUrl, onChange, onOpenLink, onOpenExternal, scrollToLine }: Props) {
   const host = useRef<HTMLDivElement>(null)
   const view = useRef<EditorView | null>(null)
-  const latest = useRef({ pages, resolve, imgUrl, onChange, onOpenLink })
-  latest.current = { pages, resolve, imgUrl, onChange, onOpenLink }
+  const latest = useRef({ pages, resolve, imgUrl, onChange, onOpenLink, onOpenExternal })
+  latest.current = { pages, resolve, imgUrl, onChange, onOpenLink, onOpenExternal }
+  const pagesKey = useRef('')
 
   useEffect(() => {
     if (!host.current) return
@@ -37,7 +39,7 @@ export default function Editor({ value, docKey, pages, resolve, imgUrl, onChange
           highlightActiveLine(),
           EditorView.lineWrapping,
           markdown({ base: markdownLanguage }),
-          livePreview({ resolve: (t) => latest.current.resolve(t), imgUrl: (r) => latest.current.imgUrl(r), onOpenLink: (t) => latest.current.onOpenLink(t) }),
+          livePreview({ resolve: (t) => latest.current.resolve(t), imgUrl: (r) => latest.current.imgUrl(r), onOpenLink: (t) => latest.current.onOpenLink(t), onOpenExternal: (u) => latest.current.onOpenExternal(u) }),
           wikilinkCompletion(() => latest.current.pages),
           keymap.of([...kbKeymap, ...historyKeymap, ...defaultKeymap]),
           EditorView.updateListener.of((u) => {
@@ -62,9 +64,13 @@ export default function Editor({ value, docKey, pages, resolve, imgUrl, onChange
     if (cur !== value) v.dispatch({ changes: { from: 0, to: cur.length, insert: value } })
   }, [value])
 
-  // Pages list changed (new note, rename): re-decorate so unresolved links update.
+  // Pages list changed (new note, rename): re-decorate so unresolved links update. Only on a real change — a
+  // selection-less effect, so an open autocomplete popup survives autosaves.
   useEffect(() => {
-    view.current?.dispatch({ selection: view.current.state.selection })
+    const key = [...pages].sort().join('\n')
+    if (key === pagesKey.current) return
+    pagesKey.current = key
+    view.current?.dispatch({ effects: refreshDecorations.of(null) })
   }, [pages])
 
   useEffect(() => {

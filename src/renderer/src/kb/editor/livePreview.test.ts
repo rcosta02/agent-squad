@@ -84,6 +84,11 @@ assert.deepEqual(hidden(within(d5, s5, 5)), [], 'nothing hidden on the active li
 assert.ok(classes(within(d5, s5, 5)).includes('cm-formatting'), 'marks shown as formatting')
 assert.ok(classes(within(d5, s5, 5)).includes('cm-strong'), 'but styling stays')
 assert.ok(hidden(within(d5, s5, 4)).includes('# '), 'other lines still hidden')
+const s6 = state(6)
+const rawLinks = within(decos(s6), s6, 6).filter((d) => d.cls?.includes('cm-hmd-internal-link'))
+assert.ok(rawLinks.length === 3 && rawLinks.every((d) => d.raw), 'active-line wikilinks are flagged raw so a plain click edits instead of navigating')
+assert.ok(!l6.some((d) => d.raw), 'inactive wikilinks are not raw')
+assert.equal(l6.find((d) => d.cls === 'cm-link')?.href, 'http://u.x', 'external link carries its url for opening')
 
 // --- cursor inside table / code / frontmatter reveals the whole block ---
 const s17 = state(17)

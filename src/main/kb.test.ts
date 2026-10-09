@@ -4,7 +4,7 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import { execSync } from 'node:child_process'
-import { rewriteLinks, kbRename, kbReadAll, kbMkdir, kbWrite, kbCommit } from './kbfs.ts'
+import { rewriteLinks, kbRename, kbReadAll, kbMkdir, kbWrite, kbCommit, kbCreate } from './kbfs.ts'
 
 // --- rewriteLinks ---
 const src = 'See [[a]], [[a|alias]], [[a#head]], [[dir/a]] and [[ab]].\n```\n[[a]] in code stays\n```\n`[[a]]` inline too'
@@ -14,6 +14,8 @@ assert.ok(out.includes('[[dir/a]]'), 'different folder path untouched')
 assert.ok(out.includes('[[ab]]'), 'prefix-only name untouched')
 assert.ok(out.includes('```\n[[a]] in code stays') && out.includes('`[[a]]` inline'), 'code untouched')
 assert.ok(rewriteLinks('[[dir/a]] [[a]]', 'dir/a', 'dir/c').includes('[[dir/c]] [[a]]'), 'folder-qualified rename')
+assert.equal(rewriteLinks('[[ops/deploy]] [[ops]]', 'ops', 'operations'), '[[ops/deploy]] [[operations]]', 'note rename never touches links under a same-named folder')
+assert.equal(rewriteLinks('[[ops/deploy]] [[ops]]', 'ops', 'operations', { dir: true }), '[[operations/deploy]] [[ops]]', 'folder rename only touches folder-qualified links')
 assert.ok(rewriteLinks('[[A]]', 'a', 'b').includes('[[b]]'), 'case-insensitive match')
 
 // --- kbRename on disk ---
@@ -32,13 +34,26 @@ assert.equal(fs.readFileSync(path.join(dir, 'other.md'), 'utf8'), 'links [[runbo
 assert.throws(() => kbRename(dir, 'other.md', 'README.md'), /exists/, 'refuses to overwrite')
 const log = execSync('git log --oneline', { cwd: dir, encoding: 'utf8' })
 assert.ok(log.includes('rename'), 'rename committed')
+// shadowed basename: [[deploy]] resolves to the root note, so renaming the runbook must leave it alone
+kbWrite(dir, 'deploy.md', 'root deploy\n')
+kbWrite(dir, 'runbooks/deploy.md', 'runbook\n')
+kbWrite(dir, 'shadow.md', '[[deploy]] and [[runbooks/deploy]]\n')
+kbCommit(dir)
+kbRename(dir, 'runbooks/deploy.md', 'runbooks/ship.md')
+assert.equal(fs.readFileSync(path.join(dir, 'shadow.md'), 'utf8'), '[[deploy]] and [[runbooks/ship]]\n', 'bare link to the root note untouched, qualified link rewritten')
+fs.rmSync(path.join(dir, 'deploy.md')); fs.rmSync(path.join(dir, 'shadow.md')); fs.rmSync(path.join(dir, 'runbooks/ship.md')); kbCommit(dir)
+assert.throws(() => kbRename(dir, 'README.md', 'index.md'), /README/, 'README cannot be renamed')
+// create refuses an existing note regardless of case (APFS is case-insensitive; writing would truncate it)
+assert.throws(() => kbCreate(dir, 'OTHER.md'), /exists/)
+kbCreate(dir, 'brand-new.md')
+assert.equal(fs.readFileSync(path.join(dir, 'brand-new.md'), 'utf8'), '')
 // folder rename rewrites folder-qualified links
 kbRename(dir, 'runbooks', 'ops')
 assert.ok(fs.existsSync(path.join(dir, 'ops/release.md')), 'folder moved')
 assert.ok(fs.readFileSync(path.join(dir, 'other.md'), 'utf8').includes('[[ops/release|the runbook]]'), 'folder link rewritten')
 // readAll
 const all = kbReadAll(dir)
-assert.deepEqual(all.map((p) => p.rel).sort(), ['README.md', 'ops/release.md', 'other.md'])
+assert.deepEqual(all.map((p) => p.rel).sort(), ['README.md', 'brand-new.md', 'ops/release.md', 'other.md'])
 // write does not commit; commit does
 kbWrite(dir, 'other.md', 'changed\n')
 assert.ok(execSync('git status --porcelain', { cwd: dir, encoding: 'utf8' }).trim().length > 0, 'write leaves the tree dirty')

@@ -44,6 +44,7 @@ const api: Api = {
   kbDelete: (workspaceId, rel) => ipcRenderer.invoke('kb:delete', workspaceId, rel),
   kbCommit: (wsId) => ipcRenderer.invoke('kb:commit', wsId),
   kbRename: (wsId, from, to) => ipcRenderer.invoke('kb:rename', wsId, from, to),
+  kbCreate: (wsId, rel) => ipcRenderer.invoke('kb:create', wsId, rel),
   kbMkdir: (wsId, rel) => ipcRenderer.invoke('kb:mkdir', wsId, rel),
   kbReadAll: (wsId) => ipcRenderer.invoke('kb:readAll', wsId),
   kbWatch: (wsId, on) => ipcRenderer.invoke('kb:watch', wsId, on),
