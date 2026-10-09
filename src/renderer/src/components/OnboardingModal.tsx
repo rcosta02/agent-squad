@@ -18,6 +18,15 @@ export default function OnboardingModal({ initial, onClose, onSubmit, onPreview 
   const [zoom, setZoom] = useState(initial?.zoom ?? 100)
   useEffect(() => onPreview(theme, zoom), [theme, zoom, onPreview])
   const bump = (d: number) => setZoom((z) => Math.min(ZOOM.max, Math.max(ZOOM.min, z + d)))
+  const [version, setVersion] = useState('')
+  const [update, setUpdate] = useState<string | null>(null) // null = idle, 'checking' while in flight, else the outcome
+  useEffect(() => {
+    window.api.appVersion().then(setVersion)
+  }, [])
+  const check = async () => {
+    setUpdate('checking')
+    setUpdate(await window.api.checkUpdates())
+  }
 
   useEffect(() => {
     if (!onClose) return
@@ -104,6 +113,15 @@ export default function OnboardingModal({ initial, onClose, onSubmit, onPreview 
         </div>
 
         <div className="modal-actions">
+          {initial && (
+            <span className="hint">
+              v{version} ·{' '}
+              <button type="button" className="link-btn" style={{ marginTop: 0 }} onClick={check} disabled={update === 'checking'}>
+                {update === 'checking' ? 'Checking…' : 'Check for updates'}
+              </button>
+              {update && update !== 'checking' && <> · {update}</>}
+            </span>
+          )}
           <span className="spacer" />
           {onClose && (
             <button className="btn" type="button" onClick={onClose}>

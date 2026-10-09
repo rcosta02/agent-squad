@@ -7,6 +7,18 @@ const { autoUpdater } = updater
  * Silent auto-updates from GitHub Releases (repo from package.json "repository").
  * Downloads in the background, then offers a restart; declined updates still install on the next quit.
  */
+// Manual check from the profile dialog. Download runs through the same auto-download path; the restart dialog follows.
+export async function checkForUpdates(): Promise<string> {
+  if (!app.isPackaged) return 'Dev build: updates disabled'
+  try {
+    const r = await autoUpdater.checkForUpdates()
+    if (!r?.isUpdateAvailable) return `Up to date (${app.getVersion()})`
+    return `Downloading ${r.updateInfo.version}…`
+  } catch (e) {
+    return `Check failed: ${(e as Error).message}`
+  }
+}
+
 export function startUpdater() {
   if (!app.isPackaged) return
   autoUpdater.autoDownload = true

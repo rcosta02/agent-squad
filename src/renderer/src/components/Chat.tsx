@@ -278,6 +278,8 @@ function statusText(msgs: Msg[] | undefined, running: boolean): string | null {
   if (!last) return 'Thinking…'
   if (last.role === 'tool' && !last.done) return `Running ${last.name}…`
   if (last.role === 'permission' && !last.decision) return 'Waiting for your approval'
+  const bg = msgs?.filter((m) => m.role === 'bgtask' && m.status === 'running')
+  if (bg?.length) return `Background: ${bg.map((m) => m.role === 'bgtask' && m.description).join(', ')}`
   if (last.role === 'assistant' && last.streaming) return 'Writing…'
   return 'Thinking…'
 }
@@ -378,6 +380,23 @@ export default function Chat({ agent, msgs, running, onSend, onStop, onEdit, onN
                 <span className={'pill ' + m.status}>{m.status === 'pending' ? 'needs review' : m.status}</span>
                 <span className="plan-open">Open →</span>
               </button>
+            </div>
+          )
+          break
+        case 'bgtask':
+          items.push(
+            <div key={m.id} className="msg-row">
+              <div className="tool-card">
+                <div className="tool-line" title={m.summary}>
+                  <span className={'status ' + (m.status === 'running' ? 'spin' : m.status === 'completed' ? 'ok' : 'err')}>
+                    {m.status === 'running' ? '◌' : m.status === 'completed' ? '✓' : '✗'}
+                  </span>
+                  <span className="name">Background</span>
+                  <span className="arrow">→</span>
+                  <span className="summary">{m.description}{m.status !== 'running' && ` · ${m.status}`}</span>
+                </div>
+                {m.summary && <div className="tool-detail"><pre>{m.summary}</pre></div>}
+              </div>
             </div>
           )
           break

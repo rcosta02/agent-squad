@@ -6,7 +6,7 @@ import type { Event } from '../shared/types'
 import { Sessions } from './sessions'
 import { kbDelete, kbList, kbRead, kbWrite } from './kb'
 import { home, loadProfile, saveProfile } from './store'
-import { startUpdater } from './updater'
+import { checkForUpdates, startUpdater } from './updater'
 import { listModels } from './models'
 import * as mcp from './mcp'
 import { Recorder, addToKb, dictate, prefetchModel, whisperModels, deleteMeeting, listMeetings, readMeeting, readSummary, renameMeeting, summarizeInline } from './meetings'
@@ -106,6 +106,8 @@ ipcMain.handle('mcp:authInput', (_, text) => authCtl?.write(String(text)))
 ipcMain.handle('meeting:start', (_, wsId, title, opts) => recorder.start(wsId, title, sessions.kbDirOf(wsId), { ...(opts ?? {}), vocab: sessions.vocabFor(wsId) }))
 ipcMain.handle('whisper:models', () => whisperModels())
 ipcMain.handle('claude:models', () => listModels())
+ipcMain.handle('app:version', () => app.getVersion())
+ipcMain.handle('app:checkUpdates', () => checkForUpdates())
 ipcMain.handle('meeting:stop', () => recorder.stop())
 ipcMain.handle('meeting:current', () => recorder.meeting)
 ipcMain.handle('meeting:list', (_, wsId) => listMeetings(wsId))

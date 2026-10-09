@@ -709,7 +709,7 @@ export class Sessions {
     const kb = ws?.kbDir ? this.kbDir(ws.id) : undefined
     const kbIndex = kb ? readIndex(kb) : ''
     const append = [
-      `You are the agent named "${agent.name}" inside a desktop app, workspace "${ws?.name ?? ''}". Other agents in this workspace: ${others.map((a) => a.name).join(', ') || 'none'}. To talk to them use ONLY the mcp__desk__message_agent tool (and mcp__desk__list_agents to list them). The built-in SendMessage/ListAgents tools cannot reach these agents. Replies come back later as user messages starting with "Message from <name>:". Mentions: "@Name" in any message refers to that agent; in the workspace #general group chat an @mention delivers the message to them. To reset your own context call mcp__desk__new_session. Your earlier sessions are gone from context but not lost: use mcp__desk__search_history / read_history when the user refers to something you discussed before. You share a kanban board with the user (mcp__desk__list_tasks / create_task / update_task). The board never starts work by itself: only act on a task when the user explicitly asks you to work on it. When you start one, move it to in_progress; when finished, move it to review with a summary comment; never move a task to done. After a plan is approved, call mcp__desk__update_plan_step as you finish each checklist step. To show the user a visual plan for review call mcp__desk__present_plan with markdown in this format: ${PLAN_FORMAT.replace(/\n/g, ' ')} For scheduled/recurring work use mcp__desk__create_routine (and list_routines / update_routine); the built-in CronCreate, CronList, CronDelete, RemoteTrigger and ScheduleWakeup tools do NOT work in this app.`,
+      `You are the agent named "${agent.name}" inside a desktop app, workspace "${ws?.name ?? ''}". Other agents in this workspace: ${others.map((a) => a.name).join(', ') || 'none'}. To talk to them use ONLY the mcp__desk__message_agent tool (and mcp__desk__list_agents to list them). The built-in SendMessage/ListAgents tools cannot reach these agents. Replies come back later as user messages starting with "Message from <name>:". Mentions: "@Name" in any message refers to that agent; in the workspace #general group chat an @mention delivers the message to them. To reset your own context call mcp__desk__new_session. Your earlier sessions are gone from context but not lost: use mcp__desk__search_history / read_history when the user refers to something you discussed before. You share a kanban board with the user (mcp__desk__list_tasks / create_task / update_task). The board never starts work by itself: only act on a task when the user explicitly asks you to work on it. When you start one, move it to in_progress; when finished, move it to review with a summary comment; never move a task to done. After a plan is approved, call mcp__desk__update_plan_step as you finish each checklist step. To show the user a visual plan for review call mcp__desk__present_plan with markdown in this format: ${PLAN_FORMAT.replace(/\n/g, ' ')} For scheduled/recurring work use mcp__desk__create_routine (and list_routines / update_routine); the built-in CronCreate, CronList, CronDelete, RemoteTrigger and ScheduleWakeup tools do NOT work in this app. Long commands (builds, releases, notarization, test suites, anything that may run over a minute): run them with Bash run_in_background and wait for the completion notification instead of blocking; the user sees background tasks in the chat.`,
       kb
         ? `Shared knowledge base at ${kb} (markdown, shared by all agents in this workspace). Its index follows. Meeting transcripts live in its meetings/ folder (not indexed): grep them when asked about a meeting. Before working on a repo or answering how something runs or relates, read the relevant page (Read/Grep in that folder). When you learn a durable fact (how to run, gotcha, decision, convention), write it there and update the index; use the kb skill for the rules.\n\n<kb-index>\n${kbIndex}\n</kb-index>`
         : '',
@@ -734,6 +734,8 @@ export class Sessions {
       allowDangerouslySkipPermissions: agent.autonomous && !planMode ? true : undefined,
       canUseTool,
       model: agent.model,
+      // Bash tool caps: 10 min default, up to 1 h when the model asks. Releases and notarization blow the stock 2 min.
+      env: { ...(process.env as Record<string, string>), BASH_DEFAULT_TIMEOUT_MS: '600000', BASH_MAX_TIMEOUT_MS: '3600000' },
       abortController: abort,
       pathToClaudeCodeExecutable: claudeBin
     }
@@ -747,7 +749,18 @@ export class Sessions {
           : text
     if (images) prompt += `\n\nAttached image${images.length > 1 ? 's' : ''} (view with the Read tool):\n${images.join('\n')}`
     if (files?.length) prompt += `\n\nAttached file${files.length > 1 ? 's' : ''} (local paths, read with the Read tool):\n${files.join('\n')}`
-    const q = query({ prompt, options })
+    // Streaming input keeps the CLI's stdin open: with a one-shot string prompt the CLI kills backgrounded Bash/subagents
+    // right after the first result. Held open until a result arrives with no background task still running.
+    let release!: () => void
+    const released = new Promise<void>((r) => (release = r))
+    const live = new Set<string>() // background task ids still running this turn
+    const q = query({
+      prompt: (async function* () {
+        yield { type: 'user' as const, message: { role: 'user' as const, content: prompt }, parent_tool_use_id: null, session_id: '' }
+        await released
+      })(),
+      options
+    })
     this.active.set(id, { q, abort })
 
     // streaming state for this turn
@@ -770,6 +783,29 @@ export class Sessions {
           if (agent.sessionId !== m.session_id) {
             const sessions = [...(agent.sessions ?? []), { sessionId: m.session_id, startedAt: Date.now(), title: text.split('\n')[0].slice(0, 60) }]
             this.update(id, { sessionId: m.session_id, sessions })
+          }
+          continue
+        }
+
+        if (m.type === 'system' && (m.subtype === 'task_started' || m.subtype === 'task_updated' || m.subtype === 'task_notification')) {
+          const prev = msgs.find((x) => x.role === 'bgtask' && x.id === m.task_id)
+          if (m.subtype === 'task_started') {
+            if (m.is_backgrounded && !m.ambient && !m.skip_transcript) {
+              live.add(m.task_id)
+              this.push(agent, msgs, { id: m.task_id, role: 'bgtask', description: m.description, status: 'running', ts: Date.now() })
+            }
+          } else if (m.subtype === 'task_updated') {
+            const st = m.patch.status
+            if (st === 'completed' || st === 'failed' || st === 'killed') live.delete(m.task_id)
+            if (prev?.role === 'bgtask') {
+              this.push(agent, msgs, { ...prev, description: m.patch.description ?? prev.description, status: st === 'completed' ? 'completed' : st === 'failed' ? 'failed' : st === 'killed' ? 'stopped' : prev.status })
+            } else if (m.patch.is_backgrounded) {
+              live.add(m.task_id)
+              this.push(agent, msgs, { id: m.task_id, role: 'bgtask', description: m.patch.description ?? 'Background task', status: 'running', ts: Date.now() })
+            }
+          } else {
+            live.delete(m.task_id)
+            if (prev?.role === 'bgtask') this.push(agent, msgs, { ...prev, status: m.status, summary: m.summary })
           }
           continue
         }
@@ -831,6 +867,9 @@ export class Sessions {
         }
 
         if (m.type === 'result') {
+          if (live.size) continue // interim result while background tasks run; the model resumes when they finish
+          await this.refreshMcp(id, q)
+          release()
           const ok = m.subtype === 'success'
           // Pushed in `finally`, after the agent is marked idle, so a follow-up send never lands on a busy agent.
           resultMsg = { id: randomUUID(), role: 'result', text: ok ? 'Done' : m.subtype.replace(/_/g, ' '), costUsd: m.total_cost_usd, durationMs: m.duration_ms, error: !ok, ts: Date.now() }
@@ -840,6 +879,7 @@ export class Sessions {
     } catch (err) {
       this.push(agent, msgs, { id: randomUUID(), role: 'result', text: String((err as Error).message ?? err), error: true, ts: Date.now() })
     } finally {
+      release() // abort/error paths: let the prompt generator finish
       if (current) {
         current.streaming = false
         this.push(agent, msgs, current)
@@ -860,6 +900,18 @@ export class Sessions {
       const next = this.queue.get(id)?.shift()
       if (next) void this.send(id, next.text, next.from, next.hop, undefined, undefined, next.group)
     }
+  }
+
+  // The init snapshot is taken while slow MCP servers are still handshaking ("pending"); re-read once the turn is done.
+  private async refreshMcp(id: string, q: Query) {
+    try {
+      const status = await Promise.race([q.mcpServerStatus(), new Promise<null>((r) => setTimeout(() => r(null), 3000))])
+      if (!status) return
+      const agent = this.agents.find((a) => a.id === id)
+      if (!agent) return
+      const mcp = status.map((s) => ({ name: s.name, status: s.status, tools: s.tools?.map((t) => t.name) ?? agent.mcp?.find((p) => p.name === s.name)?.tools ?? [] }))
+      if (JSON.stringify(mcp) !== JSON.stringify(agent.mcp)) this.update(id, { mcp })
+    } catch {} // process already gone (abort) — keep the init snapshot
   }
 
   private get(id: string) {

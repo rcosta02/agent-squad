@@ -7,6 +7,9 @@ WC="$(brew --prefix whisper-cpp)"; GG="$(brew --prefix ggml)"; OMP="$(brew --pre
 rm -rf "$OUT"; mkdir -p "$OUT"
 cp "$WC/bin/whisper-cli" "$OUT/"
 cp "$WC/lib/libwhisper.1.dylib" "$GG/lib/libggml.0.dylib" "$GG/lib/libggml-base.0.dylib" "$OMP/lib/libomp.dylib" "$OUT/"
+# ggml dlopens its backends (Metal, CPU, BLAS) at runtime: first from the executable's own dir, then the build machine's Homebrew libexec.
+# Without these next to whisper-cli, machines without Homebrew ggml die with GGML_ASSERT(device).
+cp "$GG/libexec/"*.so "$OUT/"
 chmod u+w "$OUT"/*
 for f in "$OUT"/*; do
   name="$(basename "$f")"
@@ -19,4 +22,5 @@ for f in "$OUT"/*; do
   codesign --force --sign - "$f" >/dev/null 2>&1 || true
 done
 "$OUT/whisper-cli" --help >/dev/null 2>&1 || { echo "bundled whisper-cli failed to start"; exit 1; }
+ls "$OUT"/libggml-metal.so "$OUT"/libggml-cpu-*.so >/dev/null || { echo "ggml backends missing"; exit 1; }
 echo "bundled: $(ls "$OUT" | tr '\n' ' ')"

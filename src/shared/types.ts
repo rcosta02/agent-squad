@@ -132,6 +132,7 @@ export type Msg =
     }
   | { id: string; role: 'result'; text: string; costUsd?: number; durationMs?: number; error?: boolean; ts: number }
   | { id: string; role: 'divider'; text: string; ts: number }
+  | { id: string; role: 'bgtask'; description: string; status: 'running' | 'completed' | 'failed' | 'stopped'; summary?: string; ts: number } // id = CLI task id; a Bash/subagent the agent sent to the background
   | { id: string; role: 'plan'; planId: string; title: string; status: Plan['status']; revision?: number; progress?: { done: number; total: number }; ts: number }
 
 export type Event =
@@ -208,6 +209,8 @@ export type Api = {
   micAccess(): Promise<boolean>
   meetingStart(workspaceId: string, title: string, opts?: { language?: string; model?: string }): Promise<Meeting>
   whisperModels(): Promise<{ file: string; label: string; available: boolean; progress?: number }[]> // progress = % while downloading
+  appVersion(): Promise<string>
+  checkUpdates(): Promise<string> // human-readable outcome; a found update downloads and then offers a restart
   claudeModels(): Promise<{ id: string; label: string; other?: true }[]> // account's /model rows first, then (other) every served model the picker omits; hardcoded list alone if the CLI can't answer
   meetingStop(): Promise<Meeting | null> // stops and finishes transcription; nothing else happens
   meetingCurrent(): Promise<Meeting | null>

@@ -80,6 +80,11 @@
         "Contents/Resources/whisper/libggml.0.dylib",
         "Contents/Resources/whisper/libggml-base.0.dylib",
         "Contents/Resources/whisper/libomp.dylib",
+        "Contents/Resources/whisper/libggml-metal.so",
+        "Contents/Resources/whisper/libggml-blas.so",
+        "Contents/Resources/whisper/libggml-cpu-apple_m1.so",
+        "Contents/Resources/whisper/libggml-cpu-apple_m2_m3.so",
+        "Contents/Resources/whisper/libggml-cpu-apple_m4.so",
         "Contents/Resources/audiotap"
       ],
       "notarize": true
