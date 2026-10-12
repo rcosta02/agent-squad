@@ -1,0 +1,40 @@
+Agent Squad End User License Agreement
+
+Copyright (c) 2026 Rafael Costa. All rights reserved.
+
+This agreement applies to Agent Squad versions 0.3.0 and later. Versions
+0.2.0 and earlier were released under the GNU General Public License v3.0
+or later and remain available under that license.
+
+1. License. You are granted a personal, non-exclusive, non-transferable,
+   revocable license to install and use Agent Squad free of charge on
+   computers you own or control.
+
+2. Restrictions. You may not copy (except for backup), modify, translate,
+   reverse engineer, decompile, disassemble, or create derivative works of
+   the software, except to the extent such restriction is prohibited by
+   applicable law. You may not redistribute, sublicense, rent, lease, or
+   sell the software or any part of it.
+
+3. Updates. The software may check for and download updates automatically.
+   Updates are covered by this agreement unless they come with their own.
+
+4. Third-party components. The software bundles open-source components
+   (including Electron, whisper.cpp and Node packages) that are licensed
+   under their own terms. Those terms apply to those components and are
+   not affected by this agreement.
+
+5. Ownership. The software is licensed, not sold. Rafael Costa retains all
+   rights, title and interest in the software.
+
+6. No warranty. THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY
+   KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+   MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+
+7. Limitation of liability. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY
+   CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT
+   OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR
+   THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+8. Termination. This license ends automatically if you breach it. On
+   termination you must stop using and delete all copies of the software.
